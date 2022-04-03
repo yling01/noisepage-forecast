@@ -1,6 +1,7 @@
-DEBUG_MYSQL_LOG = "/home/cmu-db-nuc-wan/admissions/magneto.log.2016-09-04"
+DEBUG_MYSQL_LOG = "/home/kapi/admissions/magneto.log.2016-09-04"
 DEBUG_MYSQL_CSV = "/tmp/meowmeow.csv"
 DEBUG_POSTGRESQL_CSV = "/tmp/meowmeow2.csv"
+DEBUG_POSTGRESQL_PARQUET = "/tmp/meewow.parquet"
 
 PG_LOG_DTYPES = {
     "log_time": str,

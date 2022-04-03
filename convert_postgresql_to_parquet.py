@@ -5,10 +5,10 @@ import pandas as pd
 import pglast
 from dask.diagnostics import ProgressBar
 
-from constants import DEBUG_POSTGRESQL_CSV, PG_LOG_DTYPES
+from constants import DEBUG_POSTGRESQL_CSV, DEBUG_POSTGRESQL_PARQUET, PG_LOG_DTYPES
 
 
-def read_postgresql_csv_to_df(postgresql_csv):
+def convert_postgresql_csv_to_parquet(postgresql_csv):
     df = dd.read_csv(
         postgresql_csv,
         names=PG_LOG_DTYPES.keys(),
@@ -69,7 +69,7 @@ def read_postgresql_csv_to_df(postgresql_csv):
 
     df = df.drop(columns=set(df.columns) - stored_columns)
     df = df.set_index("log_time")
-    return df
+    df.to_parquet(DEBUG_POSTGRESQL_PARQUET)
 
 
 def _extract_params(detail):
@@ -78,7 +78,7 @@ def _extract_params(detail):
     idx = detail.find(prefix)
     if idx == -1:
         return {}
-    parameter_list = detail[idx + len(prefix) :]
+    parameter_list = detail[idx + len(prefix):]
     params = {}
     for pstr in parameter_list.split(", "):
         pnum, pval = pstr.split(" = ")
@@ -103,7 +103,7 @@ def _substitute(row):
         print(f"Bad query: {query}")
         return ""
     for token in tokens:
-        token_str = str(query[token.start : token.end + 1])
+        token_str = str(query[token.start: token.end + 1])
         if token.start > last_end:
             new_sql.append(" ")
         if token.name == "PARAM":
@@ -124,7 +124,7 @@ def _parse(sql):
     sql = str(sql)
     new_sql, params, last_end = [], [], 0
     for token in pglast.parser.scan(sql):
-        token_str = str(sql[token.start : token.end + 1])
+        token_str = str(sql[token.start: token.end + 1])
         if token.start > last_end:
             new_sql.append(" ")
         if token.name in ["ICONST", "FCONST", "SCONST"]:
@@ -141,8 +141,7 @@ def _parse(sql):
 def main():
     pbar = ProgressBar()
     pbar.register()
-    df = read_postgresql_csv_to_df(DEBUG_POSTGRESQL_CSV)
-    breakpoint()
+    convert_postgresql_csv_to_parquet(DEBUG_POSTGRESQL_CSV)
 
 
 if __name__ == "__main__":
