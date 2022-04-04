@@ -1,16 +1,18 @@
 import re
+from pathlib import Path
 
-import dask.dataframe as dd
+import numpy as np
 import pandas as pd
 import pglast
-from dask.diagnostics import ProgressBar
+from tqdm.contrib.concurrent import process_map
 
-from constants import DEBUG_POSTGRESQL_CSV, DEBUG_POSTGRESQL_PARQUET, PG_LOG_DTYPES
+from constants import (DEBUG_POSTGRESQL_PARQUET_FOLDER,
+                       DEBUG_SPLIT_POSTGRESQL_FOLDER, PG_LOG_DTYPES)
 
 
-def convert_postgresql_csv_to_parquet(postgresql_csv):
-    df = dd.read_csv(
-        postgresql_csv,
+def convert_postgresql_csv_to_parquet(pg_csvlog, pq_path):
+    df = pd.read_csv(
+        pg_csvlog,
         names=PG_LOG_DTYPES.keys(),
         parse_dates=["log_time", "session_start_time"],
         usecols=[
@@ -26,8 +28,6 @@ def convert_postgresql_csv_to_parquet(postgresql_csv):
         ],
         dtype=PG_LOG_DTYPES,
         header=None,
-        # blocksize=None avoids dask chunking in the middle of a query with \n.
-        blocksize=None,
     )
 
     tokens = "DELETE|INSERT|SELECT|UPDATE|BEGIN|COMMIT|ROLLBACK|SHOW"
@@ -38,24 +38,21 @@ def convert_postgresql_csv_to_parquet(postgresql_csv):
     query = df["message"].str.extract(regex, flags=re.IGNORECASE)
     # Combine the capture groups for simple and extended query protocol.
     query = query[0].fillna(query[1])
-    print("TODO(WAN): Disabled SQL format for being too slow.")
+    # print("TODO(WAN): Disabled SQL format for being too slow.")
     # Prettify each SQL query for standardized formatting.
     # query = query.parallel_map(pglast.prettify, na_action='ignore')
     df["query_raw"] = query
-    df["params"] = df["detail"].apply(_extract_params, meta=("params", object))
+    df["params"] = df["detail"].apply(_extract_params)
 
-    df["query_subst"] = df[["query_raw", "params"]].apply(
-        _substitute, axis=1, meta=("query_subst", str)
-    )
+    df["query_subst"] = df[["query_raw", "params"]].apply(_substitute, axis=1)
     df = df.drop(columns=["query_raw", "params"])
 
-    template_param = df["query_subst"].apply(
-        _parse, meta=("template_param_tuple", object)
-    )
+    template_param = df["query_subst"].apply(_parse)
     df = df.assign(
         query_template=template_param.map(lambda x: x[0]),
         query_params=template_param.map(lambda x: x[1]),
     )
+    df["query_template"] = df["query_template"].astype("category")
 
     stored_columns = {
         "log_time",
@@ -69,7 +66,7 @@ def convert_postgresql_csv_to_parquet(postgresql_csv):
 
     df = df.drop(columns=set(df.columns) - stored_columns)
     df = df.set_index("log_time")
-    df.to_parquet(DEBUG_POSTGRESQL_PARQUET)
+    df.to_parquet(pq_path)
 
 
 def _extract_params(detail):
@@ -90,7 +87,7 @@ def _extract_params(detail):
 
 def _substitute(row):
     query, params = row["query_raw"], row["params"]
-    if query is pd.NA:
+    if query is pd.NA or query is np.nan:
         return pd.NA
     query = str(query)
     # Consider '$2' -> "abc'def'ghi".
@@ -121,6 +118,8 @@ def _substitute(row):
 
 
 def _parse(sql):
+    if sql is pd.NA or sql is np.nan:
+        return "", ()
     sql = str(sql)
     new_sql, params, last_end = [], [], 0
     for token in pglast.parser.scan(sql):
@@ -138,10 +137,16 @@ def _parse(sql):
     return new_sql, tuple(params)
 
 
+def _convert(csvlog):
+    pq_path = Path(DEBUG_POSTGRESQL_PARQUET_FOLDER)
+    pq_path.mkdir(exist_ok=True)
+    pq_name = csvlog.name + ".parquet"
+    convert_postgresql_csv_to_parquet(csvlog, pq_path / pq_name)
+
+
 def main():
-    pbar = ProgressBar()
-    pbar.register()
-    convert_postgresql_csv_to_parquet(DEBUG_POSTGRESQL_CSV)
+    csvlogs = list(Path(DEBUG_SPLIT_POSTGRESQL_FOLDER).glob("postgres_*.csv"))
+    process_map(_convert, csvlogs)
 
 
 if __name__ == "__main__":

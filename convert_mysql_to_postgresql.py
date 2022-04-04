@@ -6,12 +6,8 @@ import pandas as pd
 from dask.diagnostics import ProgressBar
 from tqdm import tqdm
 
-from constants import (
-    DEBUG_MYSQL_CSV,
-    DEBUG_MYSQL_LOG,
-    DEBUG_POSTGRESQL_CSV,
-    PG_LOG_DTYPES,
-)
+from constants import (DEBUG_MYSQL_CSV, DEBUG_MYSQL_LOG, DEBUG_POSTGRESQL_CSV,
+                       PG_LOG_DTYPES)
 
 
 def convert_mysql_general_log_to_mysql_csv(mysql_log_path, output_csv_path):
@@ -21,8 +17,7 @@ def convert_mysql_general_log_to_mysql_csv(mysql_log_path, output_csv_path):
     By default, the MySQL general log format is not set up for read_csv.
     There is a general lack of clear delineation between different queries,
     even vim chokes trying to open some of the log files.
-    This converts the annoying input into slightly cleaner CSV,
-    with headers
+    This converts the annoying input into slightly cleaner CSV.
 
     TODO(WAN): Write a wrapper around IOBase to avoid writing an intermediate file.
 
@@ -47,8 +42,7 @@ def convert_mysql_general_log_to_mysql_csv(mysql_log_path, output_csv_path):
         def buffer_to_line(buffer):
             # Join the buffer.
             joined_buf = "\n".join(buffer)
-            # PostgreSQL vs MySQL things.
-            joined_buf = joined_buf.replace("'", "'")
+            # TODO(WAN): PostgreSQL vs MySQL conversions go here.
             # TODO(WAN): Normalize the query? But valid queries not guaranteed, e.g., log-raw.
             return joined_buf
 
@@ -116,6 +110,10 @@ def convert_mysql_csv_to_postgresql_csv(mysql_csv_path, output_csv_path):
         df = df.drop(columns=["Id"])
         # TODO(WAN): This is kind of an abuse of PostgreSQL portal names.
         df["message"] = "execute " + df["Command"] + ": " + df["Argument"]
+        # TODO(WAN): This is even more of an abuse.
+        df.loc[df["Command"] == "Quit", "message"] = "disconnection: mysql"
+        df.loc[df["Command"] == "Connect", "message"] = "connection received: " + df["Argument"]
+        df.loc[df["Command"] == "Init DB", "message"] = "connection authorized: database=" + df["Argument"]
         df = df.drop(columns=["Command", "Argument"])
         df = df.rename(columns={"Time": "log_time"})
 
