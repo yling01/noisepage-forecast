@@ -2,4 +2,5 @@ dask[complete]
 pandas
 pglast
 pyarrow
+pydot
 tqdm

@@ -65,7 +65,6 @@ def convert_postgresql_csv_to_parquet(pg_csvlog, pq_path):
     }
 
     df = df.drop(columns=set(df.columns) - stored_columns)
-    df = df.set_index("log_time")
     df.to_parquet(pq_path)
 
 
@@ -146,7 +145,9 @@ def _convert(csvlog):
 
 def main():
     csvlogs = sorted(list(Path(DEBUG_SPLIT_POSTGRESQL_FOLDER).glob("postgres_*.csv")))
-    process_map(_convert, csvlogs)
+    process_map(_convert, csvlogs,
+                desc=f"Converting split csvlogs in \"{DEBUG_SPLIT_POSTGRESQL_FOLDER}\" "
+                     f"to Parquet in \"{DEBUG_POSTGRESQL_PARQUET_FOLDER}\".")
 
 
 if __name__ == "__main__":
