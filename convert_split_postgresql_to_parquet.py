@@ -145,7 +145,7 @@ def _convert(csvlog):
 
 
 def main():
-    csvlogs = list(Path(DEBUG_SPLIT_POSTGRESQL_FOLDER).glob("postgres_*.csv"))
+    csvlogs = sorted(list(Path(DEBUG_SPLIT_POSTGRESQL_FOLDER).glob("postgres_*.csv")))
     process_map(_convert, csvlogs)
 
 
