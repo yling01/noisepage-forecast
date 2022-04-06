@@ -1,6 +1,10 @@
+# mysql_to_postgresql.
 DEBUG_MYSQL_LOG = "/home/kapi/admissions/magneto.log.2016-09-04"
 DEBUG_MYSQL_CSV = "/tmp/meowmeow.csv"
 DEBUG_POSTGRESQL_CSV = "/tmp/meowmeow2.csv"
+
+# postgresql_to_split_postgresql.
+DEBUG_POSTGRESQL_CSV_FOLDER = "/tmp/tpccsf1/"
 DEBUG_SPLIT_POSTGRESQL_FOLDER = "/tmp/meowsplit/"
 DEBUG_POSTGRESQL_PARQUET_FOLDER = "/tmp/meowquet/"
 
@@ -28,7 +32,9 @@ PG_LOG_DTYPES = {
     "query_pos": "Int64",
     "location": str,
     "application_name": str,
+    # PostgreSQL 13+.
     "backend_type": str,
+    # PostgreSQL 14+.
     "leader_pid": "Int64",
     "query_id": "Int64",
 }

@@ -30,9 +30,8 @@ def convert_postgresql_csv_to_parquet(pg_csvlog, pq_path):
         header=None,
     )
 
-    tokens = "DELETE|INSERT|SELECT|UPDATE|BEGIN|COMMIT|ROLLBACK|SHOW"
-    simple = f"statement: ((?:{tokens}).*)"
-    extended = f"execute .+: ((?:{tokens}).*)"
+    simple = f"^statement: (.*)"
+    extended = f"^execute .+: (.*)"
     regex = f"(?:{simple})|(?:{extended})"
 
     query = df["message"].str.extract(regex, flags=re.IGNORECASE)
@@ -40,7 +39,7 @@ def convert_postgresql_csv_to_parquet(pg_csvlog, pq_path):
     query = query[0].fillna(query[1])
     # print("TODO(WAN): Disabled SQL format for being too slow.")
     # Prettify each SQL query for standardized formatting.
-    # query = query.parallel_map(pglast.prettify, na_action='ignore')
+    # query = query.apply(pglast.prettify, na_action='ignore')
     df["query_raw"] = query
     df["params"] = df["detail"].apply(_extract_params)
 

@@ -3,4 +3,5 @@ pandas
 pglast
 pyarrow
 pydot
+pygraphviz
 tqdm

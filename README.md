@@ -40,3 +40,20 @@ FH --> TXR
 TXR -->|???| GOAL
 QPD --> GOAL
 ```
+
+```
+
+num_paths <- forecast(BEGIN) # how the fuck
+t_cur <- current time
+
+for _ in num_paths:
+    qt_cur <- BEGIN
+    while True:
+        emit (qt_cur, t_cur)
+        if qt_cur in [COMMIT, ROLLBACK]:
+            break
+        qt_cur <- markov_chain(qt_cur)
+        qt_cur <- populate_params(qt_cur, t_cur)
+        t_cur <- t_cur + ddsketch(qt_cur, 90th percentile)
+
+```
