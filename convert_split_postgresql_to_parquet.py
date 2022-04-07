@@ -143,7 +143,7 @@ def _convert(csvlog):
 
 
 def main():
-    csvlogs = sorted(list(Path(DEBUG_SPLIT_POSTGRESQL_FOLDER).glob("postgres_*.csv")))
+    csvlogs = sorted(list(Path(DEBUG_SPLIT_POSTGRESQL_FOLDER).glob("*.csv")))
     process_map(_convert, csvlogs,
                 desc=f"Converting split csvlogs in \"{DEBUG_SPLIT_POSTGRESQL_FOLDER}\" "
                      f"to Parquet in \"{DEBUG_POSTGRESQL_PARQUET_FOLDER}\".")
