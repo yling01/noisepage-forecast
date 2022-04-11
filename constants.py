@@ -1,10 +1,12 @@
+FORECAST_FIFO = "forecast.fifo"
+
 # mysql_to_postgresql.
 DEBUG_MYSQL_LOG = "/home/kapi/admissions/magneto.log.2016-09-04"
 DEBUG_MYSQL_CSV = "/tmp/meowmeow.csv"
 DEBUG_POSTGRESQL_CSV = "/tmp/meowmeow2.csv"
 
 # postgresql_to_split_postgresql.
-DEBUG_POSTGRESQL_CSV_FOLDER = "/tmp/tpccsf1_stepup/"
+DEBUG_POSTGRESQL_CSV_FOLDER = "/tmp/tpccsf1/"
 DEBUG_SPLIT_POSTGRESQL_FOLDER = "/tmp/meowsplit/"
 DEBUG_POSTGRESQL_PARQUET_FOLDER = "/tmp/meowquet/"
 
