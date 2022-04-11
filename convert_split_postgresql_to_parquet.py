@@ -6,6 +6,8 @@ import pandas as pd
 import pglast
 from tqdm.contrib.concurrent import process_map
 
+from sql_parsing import substitute
+
 from constants import (DEBUG_POSTGRESQL_PARQUET_FOLDER,
                        DEBUG_SPLIT_POSTGRESQL_FOLDER, PG_LOG_DTYPES)
 
@@ -87,32 +89,7 @@ def _substitute(row):
     query, params = row["query_raw"], row["params"]
     if query is pd.NA or query is np.nan:
         return pd.NA
-    query = str(query)
-    # Consider '$2' -> "abc'def'ghi".
-    # This necessitates the use of a SQL-aware substitution,
-    # even if this is much slower than naive string substitution.
-    new_sql, last_end = [], 0
-    try:
-        tokens = pglast.parser.scan(query)
-    except pglast.parser.ParseError:
-        print(f"Bad query: {query}")
-        return ""
-    for token in tokens:
-        token_str = str(query[token.start: token.end + 1])
-        if token.start > last_end:
-            new_sql.append(" ")
-        if token.name == "PARAM":
-            assert token_str.startswith("$")
-            assert token_str[1:].isdigit()
-            if token_str not in params:
-                print(f"Bad query param: {token_str} {query} {params}")
-                return ""
-            new_sql.append(params[token_str])
-        else:
-            new_sql.append(token_str)
-        last_end = token.end + 1
-    new_sql = "".join(new_sql)
-    return new_sql
+    return substitute(str(query), params, onerror="ignore")
 
 
 def _parse(sql):
