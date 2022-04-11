@@ -103,6 +103,9 @@ def _parse(sql):
         if token.name in ["ICONST", "FCONST", "SCONST"]:
             # Integer, float, or string constant.
             new_sql.append("$" + str(len(params) + 1))
+            # Quote for consistency.
+            if token_str[0] != "'" and token_str[-1] != "'":
+                token_str = f"'{token_str}'"
             params.append(token_str)
         else:
             new_sql.append(token_str)

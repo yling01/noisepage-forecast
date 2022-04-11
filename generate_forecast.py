@@ -130,6 +130,7 @@ def generate_forecast(fmd, target_timestamp, granularity=pd.Timedelta(hours=1), 
                     for param_idx in fit.get(qt_cur, {}):
                         fit_obj = fit[qt_cur][param_idx]
                         fit_type = fit_obj["type"]
+
                         param_val = None
                         if fit_type == "distfit":
                             dist = fit_obj["distfit"]
@@ -156,18 +157,18 @@ def generate_forecast(fmd, target_timestamp, granularity=pd.Timedelta(hours=1), 
 
 
 def main():
-    # fmd = ForecastMD()
-    # pq_files = [sorted(list(Path(DEBUG_POSTGRESQL_PARQUET_FOLDER).glob("*.parquet")))[0]]
-    # for pq_file in tqdm(pq_files, desc="Reading Parquet files.", disable=True):
-    #     df = pd.read_parquet(pq_file)
-    #     df["query_template"] = df["query_template"].replace("", np.nan)
-    #     dropna_before = df.shape[0]
-    #     df = df.dropna(subset=["query_template"])
-    #     dropna_after = df.shape[0]
-    #     print(f"Dropped {dropna_before - dropna_after} empty query templates in {pq_file}.")
-    #     fmd.augment(df)
-    # fmd.fit_historical_params()
-    # fmd.save("fmd.pkl")
+    fmd = ForecastMD()
+    pq_files = [sorted(list(Path(DEBUG_POSTGRESQL_PARQUET_FOLDER).glob("*.parquet")))[0]]
+    for pq_file in tqdm(pq_files, desc="Reading Parquet files.", disable=True):
+        df = pd.read_parquet(pq_file)
+        df["query_template"] = df["query_template"].replace("", np.nan)
+        dropna_before = df.shape[0]
+        df = df.dropna(subset=["query_template"])
+        dropna_after = df.shape[0]
+        print(f"Dropped {dropna_before - dropna_after} empty query templates in {pq_file}.")
+        fmd.augment(df)
+    fmd.fit_historical_params()
+    fmd.save("fmd.pkl")
     fmd = ForecastMD.load("fmd.pkl")
     generate_forecast(fmd, '2022-04-07 11:40:00', pd.Timedelta(seconds=1), plot=True)
 

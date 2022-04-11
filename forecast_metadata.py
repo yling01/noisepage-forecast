@@ -52,6 +52,17 @@ class QueryTemplateMD:
         self._params = []
 
     def record(self, row):
+        """
+        Given a row in the dataframe, update the metadata object for this specific query template.
+
+        Parameters
+        ----------
+        row
+
+        Returns
+        -------
+
+        """
         think_time = row["think_time"]
         # Unquote the parameters.
         params = [x[1:-1] for x in row["query_params"]]
@@ -91,7 +102,6 @@ class ForecastMD:
         self.arrivals = []
 
         self.cache = {}
-
 
     def augment(self, df):
         # Invalidate the cache.
