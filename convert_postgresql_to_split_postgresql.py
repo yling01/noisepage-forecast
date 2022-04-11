@@ -1,14 +1,13 @@
 import csv
+import shutil
 import sys
 from collections import namedtuple
 from pathlib import Path
 
-from constants import (DEBUG_POSTGRESQL_CSV_FOLDER,
-                       DEBUG_SPLIT_POSTGRESQL_FOLDER,
-                       PG_LOG_DTYPES)
 from tqdm import tqdm
 
-import shutil
+from constants import (DEBUG_POSTGRESQL_CSV_FOLDER,
+                       DEBUG_SPLIT_POSTGRESQL_FOLDER, PG_LOG_DTYPES)
 
 LogEntry = namedtuple("LogEntry", PG_LOG_DTYPES.keys())
 

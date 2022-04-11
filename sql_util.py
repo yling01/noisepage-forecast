@@ -1,4 +1,6 @@
 import pglast
+import psycopg
+
 
 def substitute(query, params, onerror="raise"):
     # Consider '$2' -> "abc'def'ghi".

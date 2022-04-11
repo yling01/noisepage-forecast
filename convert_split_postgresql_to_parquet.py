@@ -6,10 +6,9 @@ import pandas as pd
 import pglast
 from tqdm.contrib.concurrent import process_map
 
-from sql_parsing import substitute
-
 from constants import (DEBUG_POSTGRESQL_PARQUET_FOLDER,
                        DEBUG_SPLIT_POSTGRESQL_FOLDER, PG_LOG_DTYPES)
+from sql_util import substitute
 
 
 def convert_postgresql_csv_to_parquet(pg_csvlog, pq_path):
