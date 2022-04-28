@@ -1,17 +1,17 @@
-from sklearn.preprocessing import LabelEncoder
-from jackie_preprocessor import Preprocessor
-
+import pickle
+import warnings
+from ast import literal_eval
 from pathlib import Path
-import pandas as pd
+
+import joypy
 import matplotlib.pyplot as plt
 import numpy as np
-import joypy
-from ast import literal_eval
+import pandas as pd
 from pandas.api.types import is_datetime64_any_dtype
+from sklearn.preprocessing import LabelEncoder
 from tqdm import tqdm
 
-import warnings
-import pickle
+from jackie_preprocessor import Preprocessor
 
 
 class DataPreprocessor:

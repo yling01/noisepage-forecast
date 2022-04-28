@@ -28,7 +28,14 @@ def substitute(query, params, onerror="raise"):
                     raise ValueError(message)
                 print(message)
                 return ""
-            new_sql.append(params[token_str])
+            pval = params[token_str]
+            try:
+                assert pval[0] == "'" and pval[-1] == "'", "Not quoted?"
+                # Remove quoting if the value looks numeric.
+                pval = str(float(pval[1:-1]))
+            except ValueError:
+                pass
+            new_sql.append(pval)
         else:
             new_sql.append(token_str)
         last_end = token.end + 1

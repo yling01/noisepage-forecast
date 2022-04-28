@@ -14,7 +14,7 @@ LogEntry = namedtuple("LogEntry", PG_LOG_DTYPES.keys())
 
 def _write_lines(buffer, filename):
     out_folder = Path(DEBUG_SPLIT_POSTGRESQL_FOLDER)
-    out_folder.mkdir(exist_ok=True)
+    out_folder.mkdir(parents=True, exist_ok=True)
     out_file = out_folder / filename
     with open(out_file, "w", newline="") as out_csv:
         writer = csv.writer(out_csv, lineterminator="\n", quoting=csv.QUOTE_ALL)
@@ -30,7 +30,7 @@ def main():
 
     csvlog_folder = DEBUG_POSTGRESQL_CSV_FOLDER
     csvlog_paths = sorted(list(Path(csvlog_folder).glob("*.csv")))
-    print(f"Processing: {csvlog_folder}")
+    print(f"Processing {csvlog_folder}, writing to {DEBUG_SPLIT_POSTGRESQL_FOLDER}.")
 
     min_batch_size = 500000
     active_sessions = set()

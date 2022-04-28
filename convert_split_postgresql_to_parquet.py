@@ -63,7 +63,6 @@ def convert_postgresql_csv_to_parquet(pg_csvlog, pq_path):
         "virtual_transaction_id",
         "transaction_id",
     }
-
     df = df.drop(columns=set(df.columns) - stored_columns)
     df.to_parquet(pq_path)
 
@@ -116,7 +115,7 @@ def _parse(sql):
 
 def _convert(csvlog):
     pq_path = Path(DEBUG_POSTGRESQL_PARQUET_FOLDER)
-    pq_path.mkdir(exist_ok=True)
+    pq_path.mkdir(parents=True, exist_ok=True)
     pq_name = csvlog.name + ".parquet"
     convert_postgresql_csv_to_parquet(csvlog, pq_path / pq_name)
 

@@ -9,9 +9,10 @@ import pandas as pd
 from neuralprophet import NeuralProphet
 from tqdm import tqdm, trange
 
-from constants import DEBUG_POSTGRESQL_PARQUET_FOLDER, DEBUG_FORECAST_FOLDER, PG_LOG_DTYPES
-from generated_forecast_md import GeneratedForecastMD
+from constants import (DEBUG_FORECAST_FOLDER, DEBUG_POSTGRESQL_PARQUET_TRAIN, DEBUG_POSTGRESQL_PARQUET_FUTURE,
+                       PG_LOG_DTYPES)
 from forecast_metadata import ForecastMD
+from generated_forecast_md import GeneratedForecastMD
 
 
 def generate_forecast_arrivals(fmd, target_timestamp, granularity, plot):
@@ -43,13 +44,16 @@ def generate_forecast_arrivals(fmd, target_timestamp, granularity, plot):
     arrivals = pd.concat(fmd.arrivals).to_frame(name="log_time")
     begin_times = arrivals.set_index("log_time").resample(granularity).size()
 
+    # TODO(WAN): Make timezone code more robust.
+    begin_times = begin_times.tz_convert("UTC").tz_convert(None)
+
     # Convert the dataframe to NeuralProphet format.
     ndf = begin_times.iloc[:-1].to_frame()
-    ndf = ndf.tz_localize(None).reset_index().rename(columns={"log_time": "ds", 0: "y"})
+    ndf = ndf.reset_index().rename(columns={"log_time": "ds", 0: "y"})
 
     # Get the forecast time range.
     ts_last = ndf["ds"].max()
-    horizon_target = pd.to_datetime(target_timestamp)
+    horizon_target = pd.to_datetime(target_timestamp).tz_convert("UTC").tz_convert(None)
     assert horizon_target > ts_last, "Horizon is not in the future?"
 
     # ndf_forecast is the forecast dataframe that needs to have its "y" columns filled in.
@@ -65,10 +69,11 @@ def generate_forecast_arrivals(fmd, target_timestamp, granularity, plot):
     forecasted_arrivals = model.predict(ndf_forecast)
 
     if plot:
-        model.plot(forecasted_arrivals)
-        plt.savefig("forecasted_arrivals.pdf")
+        Path("./artifacts/plots/").mkdir(parents=True, exist_ok=True)
+        model.plot(forecasted_arrivals, xlabel="Timestamp", ylabel="Arrivals")
+        plt.savefig("./artifacts/plots/forecasted_arrivals.pdf")
         model.plot_components(forecasted_arrivals)
-        plt.savefig("forecasted_arrivals_components.pdf")
+        plt.savefig("./artifacts/plots/forecasted_arrivals_components.pdf")
 
     return forecasted_arrivals
 
@@ -76,7 +81,7 @@ def generate_forecast_arrivals(fmd, target_timestamp, granularity, plot):
 def generate_forecast(fmd, target_timestamp, granularity=pd.Timedelta(hours=1), plot=False):
     out_folder = Path(DEBUG_FORECAST_FOLDER)
     shutil.rmtree(out_folder, ignore_errors=True)
-    out_folder.mkdir(exist_ok=True)
+    out_folder.mkdir(parents=True, exist_ok=True)
 
     with open(out_folder / f"generated_forecast_md.pkl", "wb") as f:
         metadata = GeneratedForecastMD(target_timestamp, granularity)
@@ -133,7 +138,8 @@ def generate_forecast(fmd, target_timestamp, granularity=pd.Timedelta(hours=1), 
                         assert fit_type == "sample"
                         param_val = np.random.choice(fit_obj["sample"])
                     assert param_val is not None
-                    params[f"${param_idx + 1}"] = param_val
+                    # Param dict values must be quoted for consistency.
+                    params[f"${param_idx + 1}"] = f"'{param_val}'"
 
                 # Combine the query template and the parameters.
                 query = fmd.qt_enc.inverse_transform(qt_cur)
@@ -154,21 +160,30 @@ def generate_forecast(fmd, target_timestamp, granularity=pd.Timedelta(hours=1), 
 
 
 def main():
-    # fmd = ForecastMD()
-    # pq_files = [sorted(list(Path(DEBUG_POSTGRESQL_PARQUET_FOLDER).glob("*.parquet")))[0]]
-    # for pq_file in tqdm(pq_files, desc="Reading Parquet files.", disable=True):
-    #     df = pd.read_parquet(pq_file)
-    #     df["query_template"] = df["query_template"].replace("", np.nan)
-    #     dropna_before = df.shape[0]
-    #     df = df.dropna(subset=["query_template"])
-    #     dropna_after = df.shape[0]
-    #     print(f"Dropped {dropna_before - dropna_after} empty query templates in {pq_file}.")
-    #     fmd.augment(df)
-    # fmd.fit_historical_params()
-    # fmd.save("fmd.pkl")
+    fmd = ForecastMD()
+    pq_files = [Path(DEBUG_POSTGRESQL_PARQUET_TRAIN)]
+    print(f"Parquet files: {pq_files}")
+    for pq_file in tqdm(pq_files, desc="Reading Parquet files.", disable=True):
+        df = pd.read_parquet(pq_file)
+        df["log_time"] = df["log_time"].dt.tz_convert("UTC")
+        print(f"{pq_file} has timestamps from {df['log_time'].min()} to {df['log_time'].max()}.")
+        df["query_template"] = df["query_template"].replace("", np.nan)
+        dropna_before = df.shape[0]
+        df = df.dropna(subset=["query_template"])
+        dropna_after = df.shape[0]
+        print(f"Dropped {dropna_before - dropna_after} empty query template rows in {pq_file}. {dropna_after} rows remain.")
+        fmd.augment(df)
+    fmd.fit_historical_params()
+    fmd.save("fmd.pkl")
     fmd = ForecastMD.load("fmd.pkl")
-    arrivals = pd.concat(fmd.arrivals).dt.tz_localize(None)
-    generate_forecast(fmd, arrivals.max() + pd.Timedelta(seconds=60), pd.Timedelta(seconds=1), plot=True)
+    arrivals = pd.concat(fmd.arrivals).dt.tz_convert("UTC")
+
+    # TODO(WAN): This can be cached for performance.
+    future_df = pd.read_parquet(DEBUG_POSTGRESQL_PARQUET_FUTURE)
+    forecast_target = future_df["log_time"].max().tz_convert("UTC")
+
+    print(f"Generating forecast. [{arrivals.min()}, {arrivals.max()}] to {forecast_target}.")
+    generate_forecast(fmd, forecast_target, pd.Timedelta(seconds=1), plot=True)
 
 
 if __name__ == "__main__":

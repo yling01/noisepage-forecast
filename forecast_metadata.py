@@ -106,6 +106,28 @@ class ForecastMD:
     def augment(self, df):
         # Invalidate the cache.
         self.cache = {}
+
+        # Sort the dataframe. All the below code assumes that the dataframe is sorted chronologically.
+        df = df.sort_values(["log_time", "session_line_num"])
+
+        # Drop any torn txns from the df.
+        # Specifically, it is assumed that each txn has a clear begin and end marker.
+        valid_starts = ["BEGIN"]
+        valid_ends = ["COMMIT", "ROLLBACK"]
+        vtxid_group = df.groupby("virtual_transaction_id", sort=False)
+        good_starts = vtxid_group.nth(0)["query_template"].isin(valid_starts)
+        good_starts = good_starts[good_starts].index
+        good_ends = vtxid_group.nth(-1)["query_template"].isin(valid_ends)
+        good_ends = good_ends[good_ends].index
+        good_vtxids = (good_starts & good_ends).values
+
+        pre_drop_rows = df.shape[0]
+        df = df.drop(df[~df["virtual_transaction_id"].isin(good_vtxids)].index)
+        post_drop_rows = df.shape[0]
+        dropped_rows = pre_drop_rows - post_drop_rows
+        if dropped_rows > 0:
+            print(f"Dropped {dropped_rows} rows belonging to torn/unconforming transactions. {post_drop_rows} rows remain.")
+
         # Augment the dataframe while updating internal state.
 
         # Encode the query templates.
@@ -192,13 +214,11 @@ class ForecastMD:
 
     def _group_txn(self, item):
         group_id, df = item
-        df = df.sort_values(["log_time", "session_line_num"])
         qt_encs = df["query_template_enc"].values
         return group_id, qt_encs
 
     def _group_session(self, item):
         group_id, df = item
-        df = df.sort_values(["log_time", "session_line_num"])
         qt_encs = df["query_template_enc"].values
         qt_encs = np.concatenate([
             self.qt_enc.transform([self.SESSION_BEGIN]),
