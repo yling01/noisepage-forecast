@@ -75,10 +75,24 @@ def generate_forecast_arrivals(fmd, target_timestamp, granularity, plot):
         model.plot_components(forecasted_arrivals)
         plt.savefig("./artifacts/plots/forecasted_arrivals_components.pdf")
 
+    forecasted_arrivals.ds = forecasted_arrivals.ds.dt.tz_localize("UTC")
     return forecasted_arrivals
 
 
 def generate_forecast(fmd, target_timestamp, granularity=pd.Timedelta(hours=1), plot=False):
+    """
+
+    Parameters
+    ----------
+    fmd : ForecastMD
+    target_timestamp : str
+    granularity : pd.Timedelta
+    plot : bool
+
+    Returns
+    -------
+
+    """
     out_folder = Path(DEBUG_FORECAST_FOLDER)
     shutil.rmtree(out_folder, ignore_errors=True)
     out_folder.mkdir(parents=True, exist_ok=True)
@@ -88,7 +102,7 @@ def generate_forecast(fmd, target_timestamp, granularity=pd.Timedelta(hours=1), 
         pickle.dump(metadata, f)
 
     forecast_arrivals = generate_forecast_arrivals(fmd, target_timestamp, granularity, plot)
-    fit = fmd.fit_historical_params()
+    model = fmd.get_cache()["forecast_model"]["jackie1m1p"]
 
     for i, row in tqdm(forecast_arrivals.iterrows(), total=forecast_arrivals.shape[0],
                        desc="Generating sessions until the forecast horizon."):
@@ -99,53 +113,41 @@ def generate_forecast(fmd, target_timestamp, granularity=pd.Timedelta(hours=1), 
         # Generate a sample path for each session.
         rows = []
         for session_num in trange(num_forecasted_sessions, desc=f"Generating sessions for {current_ts}.", leave=False):
+            current_session_ts = current_ts
             session_line_num = 1
 
-            qt_cur = fmd.qt_enc.transform("BEGIN")
-            qt_ends = fmd.qt_enc.transform(["COMMIT", "ROLLBACK"])
-            query = fmd.qt_enc.inverse_transform(qt_cur)
-            params = {}
+            qte_cur = fmd.qt_enc.transform("BEGIN")
+            qte_ends = fmd.qt_enc.transform(["COMMIT", "ROLLBACK"])
+            qt_cur = fmd.qt_enc.inverse_transform(qte_cur)
+            params_cur = {}
 
             # Generate a sample path for the current session.
             sample_path = []
             while True:
                 # Emit.
-                sample_path.append((session_num, session_line_num, query, params))
+                sample_path.append((session_num, session_line_num, qt_cur, params_cur))
                 # Stop.
-                if qt_cur in qt_ends:
+                if qte_cur in qte_ends:
                     break
 
                 # Advance the session line number.
                 session_line_num += 1
 
                 # Pick the next query template by sampling the Markov chain.
-                transitions = fmd.transition_txns[qt_cur].items()
+                transitions = fmd.transition_txns[qte_cur].items()
                 candidate_templates = [k for k, _ in transitions]
                 probs = np.array([v['weight'] for _, v in transitions])
                 probs = probs / np.sum(probs)
-                qt_cur = np.random.choice(candidate_templates, p=probs)
+                qte_cur = np.random.choice(candidate_templates, p=probs)
+
                 # Generate the parameters.
-                params = {}
-                for param_idx in fit.get(qt_cur, {}):
-                    fit_obj = fit[qt_cur][param_idx]
-                    fit_type = fit_obj["type"]
-
-                    param_val = None
-                    if fit_type == "distfit":
-                        dist = fit_obj["distfit"]
-                        param_val = str(dist.generate(n=1, verbose=0)[0])
-                    else:
-                        assert fit_type == "sample"
-                        param_val = np.random.choice(fit_obj["sample"])
-                    assert param_val is not None
-                    # Param dict values must be quoted for consistency.
-                    params[f"${param_idx + 1}"] = f"'{param_val}'"
-
-                # Combine the query template and the parameters.
-                query = fmd.qt_enc.inverse_transform(qt_cur)
+                qt_cur = fmd.qt_enc.inverse_transform(qte_cur)
+                params_cur = model.generate_parameters(qt_cur, current_session_ts)
+                # Advance the time.
+                current_session_ts += pd.Timedelta(seconds=fmd.qtmds[qte_cur]._think_time_sketch.get_quantile_value(0.5))
             # Write the sample path.
-            for session_num, session_line_num, query, params in sample_path:
-                rows.append([session_num, session_line_num, query, params])
+            for session_num, session_line_num, qt, params in sample_path:
+                rows.append([session_num, session_line_num, qt, params])
         dtypes = {
             "session_id": str,
             "session_line_num": "Int64",
@@ -160,22 +162,43 @@ def generate_forecast(fmd, target_timestamp, granularity=pd.Timedelta(hours=1), 
 
 
 def main():
-    fmd = ForecastMD()
-    pq_files = [Path(DEBUG_POSTGRESQL_PARQUET_TRAIN)]
-    print(f"Parquet files: {pq_files}")
-    for pq_file in tqdm(pq_files, desc="Reading Parquet files.", disable=True):
-        df = pd.read_parquet(pq_file)
-        df["log_time"] = df["log_time"].dt.tz_convert("UTC")
-        print(f"{pq_file} has timestamps from {df['log_time'].min()} to {df['log_time'].max()}.")
-        df["query_template"] = df["query_template"].replace("", np.nan)
-        dropna_before = df.shape[0]
-        df = df.dropna(subset=["query_template"])
-        dropna_after = df.shape[0]
-        print(f"Dropped {dropna_before - dropna_after} empty query template rows in {pq_file}. {dropna_after} rows remain.")
-        fmd.augment(df)
-    fmd.fit_historical_params()
-    fmd.save("fmd.pkl")
+    # fmd = ForecastMD()
+    # pq_files = [Path(DEBUG_POSTGRESQL_PARQUET_TRAIN)]
+    # print(f"Parquet files: {pq_files}")
+    # for pq_file in tqdm(pq_files, desc="Reading Parquet files.", disable=True):
+    #     df = pd.read_parquet(pq_file)
+    #     df["log_time"] = df["log_time"].dt.tz_convert("UTC")
+    #     print(f"{pq_file} has timestamps from {df['log_time'].min()} to {df['log_time'].max()}.")
+    #     df["query_template"] = df["query_template"].replace("", np.nan)
+    #     dropna_before = df.shape[0]
+    #     df = df.dropna(subset=["query_template"])
+    #     dropna_after = df.shape[0]
+    #     print(f"Dropped {dropna_before - dropna_after} empty query template rows in {pq_file}. {dropna_after} rows remain.")
+    #     fmd.augment(df)
+    # fmd.save("fmd.pkl")
+
     fmd = ForecastMD.load("fmd.pkl")
+
+    # Precompute a bunch of stuff.
+    cache = fmd.get_cache()
+    if "forecast_model" not in cache:
+        cache["forecast_model"] = {}
+        fmd.save("fmd.pkl")
+
+    # distfit model.
+    if "distfit" not in cache["forecast_model"]:
+        from fm_distfit import DistfitModel
+        cache["forecast_model"]["distfit"] = DistfitModel().fit(fmd)
+        fmd.save("fmd.pkl")
+
+    # Jackie's 1m1p model.
+    if "jackie1m1p" not in cache["forecast_model"]:
+        from fm_jackie import Jackie1m1p
+        cache["forecast_model"]["jackie1m1p"] = Jackie1m1p().fit(fmd)
+        fmd.save("fmd.pkl")
+
+    fmd = ForecastMD.load("fmd.pkl")
+
     arrivals = pd.concat(fmd.arrivals).dt.tz_convert("UTC")
 
     # TODO(WAN): This can be cached for performance.

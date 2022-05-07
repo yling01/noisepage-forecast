@@ -53,7 +53,7 @@ xmlstarlet edit --inplace --update '/parameters/url' --value "jdbc:postgresql://
 xmlstarlet edit --inplace --update '/parameters/username' --value "${DB_USER}" ${ARTIFACT_CONFIG}
 xmlstarlet edit --inplace --update '/parameters/password' --value "${DB_PASS}" ${ARTIFACT_CONFIG}
 xmlstarlet edit --inplace --update '/parameters/scalefactor' --value "1" ${ARTIFACT_CONFIG}
-xmlstarlet edit --inplace --update '/parameters/works/work/time' --value "120" ${ARTIFACT_CONFIG}
+xmlstarlet edit --inplace --update '/parameters/works/work/time' --value "30" ${ARTIFACT_CONFIG}
 xmlstarlet edit --inplace --update '/parameters/works/work/rate' --value "unlimited" ${ARTIFACT_CONFIG}
 
 # ---
@@ -109,52 +109,52 @@ PGPASSWORD=${DB_PASS} pg_restore --host=localhost --username=${DB_USER} --clean 
 python3 ./convert_postgresql_to_split_postgresql.py
 python3 ./convert_split_postgresql_to_parquet.py
 python3 ./convert_parquet_to_split_parquet.py
-python3 ./convert_parquet_to_forecast.py
-
-# ---
-# Evaluation.
-# ---
-
-# Compress the train log.
-pgreplay -f -c -o "${DIR_EVAL}/pgreplay_train.out" "./artifacts/tmp/data/train.csv"
-# Compress the future log.
-pgreplay -f -c -o "${DIR_EVAL}/pgreplay_future.out" "./artifacts/tmp/data/future.csv"
-
-# --
-# Forecast log.
-# ---
-
-# Restore from dump.
-PGPASSWORD=${DB_PASS} pg_restore --host=localhost --username=${DB_USER} --clean --if-exists --dbname=${DB_NAME} ${DIR_DUMP}
-sudo systemctl restart postgresql
-# Replay the forecast log.
-PGUSER=${DB_USER} pgreplay -r -h localhost -p 5432 -W ${DB_PASS} "${DIR_EVAL}/pgreplay_train.out"
-python3 ./convert_forecast_to_query_log.py
-# Capture metrics.
-PGPASSWORD=${DB_PASS} psql --host=localhost --dbname=${DB_NAME} --username=${DB_USER} --command="CREATE EXTENSION IF NOT EXISTS pg_buffercache;"
-PGPASSWORD=${DB_PASS} psql --host=localhost --dbname=${DB_NAME} --username=${DB_USER} --file=./inspect_bufferpool.sql --output=./psql_forecast_log.csv --csv
-
-# Dump the database.
-PGPASSWORD=${DB_PASS} pg_dump --host=localhost --username=${DB_USER} --format=directory --file="./artifacts/forecast_dump" ${DB_NAME}
-
-# ---
-# Future log.
-# ---
-
-# Restore from dump.
-PGPASSWORD=${DB_PASS} pg_restore --host=localhost --username=${DB_USER} --clean --if-exists --dbname=${DB_NAME} ${DIR_DUMP}
-sudo systemctl restart postgresql
-# Replay the forecast log.
-PGUSER=${DB_USER} pgreplay -r -h localhost -p 5432 -W ${DB_PASS} "${DIR_EVAL}/pgreplay_train.out"
-PGUSER=${DB_USER} pgreplay -r -h localhost -p 5432 -W ${DB_PASS} "${DIR_EVAL}/pgreplay_future.out"
-# Capture metrics.
-PGPASSWORD=${DB_PASS} psql --host=localhost --dbname=${DB_NAME} --username=${DB_USER} --command="CREATE EXTENSION IF NOT EXISTS pg_buffercache;"
-PGPASSWORD=${DB_PASS} psql --host=localhost --dbname=${DB_NAME} --username=${DB_USER} --file=./inspect_bufferpool.sql --output=./psql_future_log.csv --csv
-
-# Dump the database.
-PGPASSWORD=${DB_PASS} pg_dump --host=localhost --username=${DB_USER} --format=directory --file="./artifacts/future_dump" ${DB_NAME}
-
-# Old dead code.
+#python3 ./convert_parquet_to_forecast.py
+#
+## ---
+## Evaluation.
+## ---
+#
+## Compress the train log.
+#pgreplay -f -c -o "${DIR_EVAL}/pgreplay_train.out" "./artifacts/tmp/data/train.csv"
+## Compress the future log.
+#pgreplay -f -c -o "${DIR_EVAL}/pgreplay_future.out" "./artifacts/tmp/data/future.csv"
+#
+## --
+## Forecast log.
+## ---
+#
+## Restore from dump.
+#PGPASSWORD=${DB_PASS} pg_restore --host=localhost --username=${DB_USER} --clean --if-exists --dbname=${DB_NAME} ${DIR_DUMP}
+#sudo systemctl restart postgresql
+## Replay the forecast log.
+#PGUSER=${DB_USER} pgreplay -r -h localhost -p 5432 -W ${DB_PASS} "${DIR_EVAL}/pgreplay_train.out"
+#python3 ./convert_forecast_to_query_log.py
+## Capture metrics.
+#PGPASSWORD=${DB_PASS} psql --host=localhost --dbname=${DB_NAME} --username=${DB_USER} --command="CREATE EXTENSION IF NOT EXISTS pg_buffercache;"
+#PGPASSWORD=${DB_PASS} psql --host=localhost --dbname=${DB_NAME} --username=${DB_USER} --file=./inspect_bufferpool.sql --output=./psql_forecast_log.csv --csv
+#
+## Dump the database.
+#PGPASSWORD=${DB_PASS} pg_dump --host=localhost --username=${DB_USER} --format=directory --file="./artifacts/forecast_dump" ${DB_NAME}
+#
+## ---
+## Future log.
+## ---
+#
+## Restore from dump.
+#PGPASSWORD=${DB_PASS} pg_restore --host=localhost --username=${DB_USER} --clean --if-exists --dbname=${DB_NAME} ${DIR_DUMP}
+#sudo systemctl restart postgresql
+## Replay the forecast log.
+#PGUSER=${DB_USER} pgreplay -r -h localhost -p 5432 -W ${DB_PASS} "${DIR_EVAL}/pgreplay_train.out"
+#PGUSER=${DB_USER} pgreplay -r -h localhost -p 5432 -W ${DB_PASS} "${DIR_EVAL}/pgreplay_future.out"
+## Capture metrics.
+#PGPASSWORD=${DB_PASS} psql --host=localhost --dbname=${DB_NAME} --username=${DB_USER} --command="CREATE EXTENSION IF NOT EXISTS pg_buffercache;"
+#PGPASSWORD=${DB_PASS} psql --host=localhost --dbname=${DB_NAME} --username=${DB_USER} --file=./inspect_bufferpool.sql --output=./psql_future_log.csv --csv
+#
+## Dump the database.
+#PGPASSWORD=${DB_PASS} pg_dump --host=localhost --username=${DB_USER} --format=directory --file="./artifacts/future_dump" ${DB_NAME}
+#
+## Old dead code.
 
 ## Compress the forecast log.
 ## TODO(WAN): Useless.
