@@ -5,6 +5,9 @@ artifacts/
 # Directory for building code.
 build/
 
+# Special exception for BenchBase because it rarely changes.
+benchbase/
+
 # Ignore most JetBrains IDE files.
 /.idea/*
 
@@ -30,3 +33,6 @@ dist/
 *.egg
 
 *.so
+
+# Python pickle files can get pretty big.
+*.pkl

@@ -94,7 +94,7 @@ class Jackie1m1p(ForecastModelABC):
 
     def fit(self, forecast_md):
         model = {}
-        for qt_enc, qtmd in tqdm(forecast_md.qtmds.items(), total=len(forecast_md.qtmds), desc="Fitting query templates."):
+        for qt_enc, qtmd in tqdm(forecast_md.qtmds.items(), total=len(forecast_md.qtmds), desc="Fitting query templates with Jackie1m1p."):
             qt = qtmd._query_template
 
             model[qt] = {}

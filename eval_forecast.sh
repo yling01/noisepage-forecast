@@ -7,7 +7,7 @@ export DB_PASS="forecast_pass"
 export DB_NAME="forecast_db"
 
 export DIR_BUILD="./build"
-export DIR_BUILD_BENCHBASE="${DIR_BUILD}/benchbase"
+export DIR_BUILD_BENCHBASE="./benchbase"
 
 export BENCHBASE_URL="https://github.com/cmu-db/benchbase.git"
 export BENCHMARK="tpcc"
@@ -33,14 +33,18 @@ PGPASSWORD=${DB_PASS} dropdb --if-exists --host=localhost --username=${DB_USER} 
 PGPASSWORD=${DB_PASS} createdb --host=localhost --username=${DB_USER} ${DB_NAME}
 
 # BenchBase: get, build, extract.
-rm -rf ${DIR_BUILD_BENCHBASE}
-git clone ${BENCHBASE_URL} --depth 1 --branch main --single-branch ${DIR_BUILD_BENCHBASE}
-cd ${DIR_BUILD_BENCHBASE}
-./mvnw clean package -Dmaven.test.skip=true -P postgres
-cd -
-cd ${DIR_BUILD_BENCHBASE}/target
-tar xvzf benchbase-postgres.tgz
-cd -
+# Use a cached copy if available since we don't update BenchBase much.
+# rm -rf ${DIR_BUILD_BENCHBASE}
+if [ ! -d ${DIR_BUILD_BENCHBASE} ]
+then
+    git clone ${BENCHBASE_URL} --depth 1 --branch main --single-branch ${DIR_BUILD_BENCHBASE}
+    cd ${DIR_BUILD_BENCHBASE}
+    ./mvnw clean package -Dmaven.test.skip=true -P postgres
+    cd -
+    cd ${DIR_BUILD_BENCHBASE}/target
+    tar xvzf benchbase-postgres.tgz
+    cd -
+fi
 
 # Copy and modify BenchBase config.
 cp ${DIR_BUILD_BENCHBASE}/target/benchbase-postgres/config/postgres/sample_${BENCHMARK}_config.xml ${ARTIFACT_CONFIG}

@@ -1,5 +1,6 @@
 ddsketch
 distfit
+joypy
 matplotlib
 networkx
 neuralprophet
@@ -8,4 +9,5 @@ pandas
 pglast
 psycopg
 pyarrow
+sklearn
 tqdm
