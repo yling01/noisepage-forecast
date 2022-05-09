@@ -267,10 +267,7 @@ class Jackie1m1p(ForecastModelABC):
                 # There are len(pred) - 1 many buckets.
                 bucket = self._rng.integers(low=0, high=len(pred) - 1, endpoint=False)
                 left_bound, right_bound = pred[bucket], pred[bucket + 1]
-                try:
-                    param_val = self._rng.uniform(left_bound, right_bound)
-                except:
-                    breakpoint()
+                param_val = self._rng.uniform(left_bound, right_bound)
             assert param_val is not None
 
             # Param dict values must be quoted for consistency.
