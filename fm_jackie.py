@@ -136,7 +136,7 @@ class Jackie1m1p(ForecastModelABC):
                 # where N is governed by the historical data available and the resampling window `prediction_interval`,
                 # and num_quantiles is controlled by the `quantiles` functions used.
                 quantiles = [lambda x: x.quantile(qval) for _, qval in self.quantiles_def]
-                tsdf = params_df[param_col].resample(self.prediction_interval).agg(quantiles).astype(float)
+                tsdf = params_df[param_col].resample(self.prediction_interval).fillna(0).agg(quantiles).astype(float)
 
                 # To form the X vector, we roll consecutive `prediction_seq_len` buckets of quantile values together.
                 # Each bucket from before will get the previous buckets prepended to it, padding with 0s if necessary,
@@ -267,7 +267,10 @@ class Jackie1m1p(ForecastModelABC):
                 # There are len(pred) - 1 many buckets.
                 bucket = self._rng.integers(low=0, high=len(pred) - 1, endpoint=False)
                 left_bound, right_bound = pred[bucket], pred[bucket + 1]
-                param_val = self._rng.uniform(left_bound, right_bound)
+                try:
+                    param_val = self._rng.uniform(left_bound, right_bound)
+                except:
+                    breakpoint()
             assert param_val is not None
 
             # Param dict values must be quoted for consistency.
