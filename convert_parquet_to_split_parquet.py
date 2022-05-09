@@ -17,6 +17,10 @@ def main():
     out_dir = Path(DEBUG_POSTGRESQL_PARQUET_DATA)
     out_dir.mkdir(parents=True, exist_ok=True)
 
+    if len(pq_files) == 0:
+        print("No Parquet files found?")
+        return
+
     df = pd.concat(pd.read_parquet(pq_file) for pq_file in pq_files)
     # Hold out half of the dataframe.
     num_splits = 2

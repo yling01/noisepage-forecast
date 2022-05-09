@@ -1,3 +1,5 @@
+#!/bin/env bash
+
 set -euxo pipefail
 
 export DB_USER="forecast_user"
@@ -23,16 +25,9 @@ mkdir -p ${DIR_TRAIN}
 mkdir -p ${DIR_EVAL}
 
 sudo --validate
-echo "If error, please run: create user ${DB_USER} with superuser encrypted password '${DB_PASS}'";
-
-# Disable logging.
-PGPASSWORD=${DB_PASS} psql --host=localhost --dbname=${DB_NAME} --username=${DB_USER} --command="ALTER SYSTEM SET log_destination='stderr'"
-PGPASSWORD=${DB_PASS} psql --host=localhost --dbname=${DB_NAME} --username=${DB_USER} --command="ALTER SYSTEM SET logging_collector='off'"
-PGPASSWORD=${DB_PASS} psql --host=localhost --dbname=${DB_NAME} --username=${DB_USER} --command="ALTER SYSTEM SET log_statement='none'"
-PGPASSWORD=${DB_PASS} psql --host=localhost --dbname=${DB_NAME} --username=${DB_USER} --command="ALTER SYSTEM SET log_connections='off'"
-PGPASSWORD=${DB_PASS} psql --host=localhost --dbname=${DB_NAME} --username=${DB_USER} --command="ALTER SYSTEM SET log_disconnections='off'"
-sudo systemctl restart postgresql
-until PGPASSWORD=${DB_PASS} pg_isready --host=localhost --dbname=${DB_NAME} --username=${DB_USER} ; do sleep 1 ; done
+sudo --login -u postgres psql -c "drop database if exists ${DB_NAME};"
+sudo --login -u postgres psql -c "drop user if exists ${DB_USER};"
+sudo --login -u postgres psql -c "create user ${DB_USER} with superuser encrypted password '${DB_PASS}';"
 
 PGPASSWORD=${DB_PASS} dropdb --if-exists --host=localhost --username=${DB_USER} ${DB_NAME}
 PGPASSWORD=${DB_PASS} createdb --host=localhost --username=${DB_USER} ${DB_NAME}
@@ -80,7 +75,7 @@ PGPASSWORD=${DB_PASS} psql --host=localhost --dbname=${DB_NAME} --username=${DB_
 sudo systemctl restart postgresql
 until PGPASSWORD=${DB_PASS} pg_isready --host=localhost --dbname=${DB_NAME} --username=${DB_USER} ; do sleep 1 ; done
 
-# Run Benchbase. Uses NoisePage-Pilot.
+# Run Benchbase.
 cd ${DIR_BUILD_BENCHBASE}/target/benchbase-postgres
 java -jar benchbase.jar -b ${BENCHMARK} -c ${ARTIFACT_CONFIG} --execute=true
 cd -
@@ -154,33 +149,3 @@ PGPASSWORD=${DB_PASS} psql --host=localhost --dbname=${DB_NAME} --username=${DB_
 # Dump the database.
 PGPASSWORD=${DB_PASS} pg_dump --host=localhost --username=${DB_USER} --format=directory --file="./artifacts/future_dump" ${DB_NAME}
 
-# Old dead code.
-
-## Compress the forecast log.
-## TODO(WAN): Useless.
-# pgreplay -f -c -o "${DIR_EVAL}/pgreplay_forecast.out" "${DIR_EVAL}/forecast_log.csv"
-## Clear old log files.
-#sudo bash -c "rm -rf /var/lib/postgresql/14/main/log/*"
-#
-## Enable logging.
-#PGPASSWORD=${DB_PASS} psql --host=localhost --dbname=${DB_NAME} --username=${DB_USER} --command="ALTER SYSTEM SET log_destination='csvlog'"
-#PGPASSWORD=${DB_PASS} psql --host=localhost --dbname=${DB_NAME} --username=${DB_USER} --command="ALTER SYSTEM SET logging_collector='on'"
-#PGPASSWORD=${DB_PASS} psql --host=localhost --dbname=${DB_NAME} --username=${DB_USER} --command="ALTER SYSTEM SET log_statement='all'"
-#PGPASSWORD=${DB_PASS} psql --host=localhost --dbname=${DB_NAME} --username=${DB_USER} --command="ALTER SYSTEM SET log_connections='on'"
-#PGPASSWORD=${DB_PASS} psql --host=localhost --dbname=${DB_NAME} --username=${DB_USER} --command="ALTER SYSTEM SET log_disconnections='on'"
-#sudo systemctl restart postgresql
-#until PGPASSWORD=${DB_PASS} pg_isready --host=localhost --dbname=${DB_NAME} --username=${DB_USER} ; do sleep 1 ; done
-#
-#python3 ./convert_forecast_to_query_log.py
-#
-## Disable logging.
-#PGPASSWORD=${DB_PASS} psql --host=localhost --dbname=${DB_NAME} --username=${DB_USER} --command="ALTER SYSTEM SET log_destination='stderr'"
-#PGPASSWORD=${DB_PASS} psql --host=localhost --dbname=${DB_NAME} --username=${DB_USER} --command="ALTER SYSTEM SET logging_collector='off'"
-#PGPASSWORD=${DB_PASS} psql --host=localhost --dbname=${DB_NAME} --username=${DB_USER} --command="ALTER SYSTEM SET log_statement='none'"
-#PGPASSWORD=${DB_PASS} psql --host=localhost --dbname=${DB_NAME} --username=${DB_USER} --command="ALTER SYSTEM SET log_connections='off'"
-#PGPASSWORD=${DB_PASS} psql --host=localhost --dbname=${DB_NAME} --username=${DB_USER} --command="ALTER SYSTEM SET log_disconnections='off'"
-#sudo systemctl restart postgresql
-#until PGPASSWORD=${DB_PASS} pg_isready --host=localhost --dbname=${DB_NAME} --username=${DB_USER} ; do sleep 1 ; done
-#
-## Copy the log files.
-#sudo bash -c "cat /var/lib/postgresql/14/main/log/*.csv > ${DIR_EVAL}/forecast_log.csv"

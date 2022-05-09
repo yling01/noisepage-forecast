@@ -1,8 +1,11 @@
-dask[complete]
+ddsketch
+distfit
+matplotlib
+networkx
+neuralprophet
+numpy
 pandas
 pglast
+psycopg
 pyarrow
-python-daemon
-pydot
-pygraphviz
 tqdm
