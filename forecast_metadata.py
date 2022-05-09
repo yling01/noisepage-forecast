@@ -1,11 +1,12 @@
 import pickle
 from multiprocessing import cpu_count
 
+from typing import Dict
+
 import networkx as nx
 import numpy as np
 import pandas as pd
 from ddsketch import DDSketch
-from distfit import distfit
 from pandas.api.types import is_datetime64_any_dtype
 from tqdm import tqdm
 from tqdm.contrib.concurrent import process_map
@@ -47,42 +48,50 @@ class QueryTemplateEncoder:
 
 
 class QueryTemplateMD:
-    def __init__(self):
+    def __init__(self, query_template, query_template_encoding):
+        self._query_template = query_template
+        self._query_template_encoding = query_template_encoding
         self._think_time_sketch = DDSketch()
         self._params = []
+        self._params_times = []
 
     def record(self, row):
         """
         Given a row in the dataframe, update the metadata object for this specific query template.
-
-        Parameters
-        ----------
-        row
-
-        Returns
-        -------
-
         """
+        assert row["query_template"] == self._query_template, "Mismatched query template?"
         think_time = row["think_time"]
         # Unquote the parameters.
         params = [x[1:-1] for x in row["query_params"]]
         self._think_time_sketch.add(think_time)
         if len(params) > 0:
             self._params.append(params)
+            self._params_times.append(row["log_time"])
 
     def get_historical_params(self):
+        """
+        Returns
+        -------
+        historical_params : pd.DataFrame
+        """
         if len(self._params) > 0:
             params = np.stack(self._params)
-            params = pd.DataFrame(params)
+            params = pd.DataFrame(params, index=pd.DatetimeIndex(self._params_times))
             for col in params.columns:
                 if is_datetime64_any_dtype(params[col]):
                     params[col] = params[col].astype("datetime64")
                 elif all(params[col].str.isnumeric()):
                     params[col] = params[col].astype(int)
-                elif all(params[col].str.replace(".", "").str.isnumeric()):
+                elif all(params[col].str.replace(".", "", regex=False).str.isnumeric()):
                     params[col] = params[col].astype(float)
             return params.convert_dtypes()
-        return []
+        return pd.DataFrame([], index=pd.DatetimeIndex([]))
+
+    def __repr__(self):
+        return str(self)
+
+    def __str__(self):
+        return f"QueryTemplateMD[{self._query_template_encoding=}, {len(self._params)=}, {self._query_template=}]"
 
 
 class ForecastMD:
@@ -90,7 +99,7 @@ class ForecastMD:
     SESSION_END = "SESSION_END"
 
     def __init__(self):
-        self.qtmds = {}
+        self.qtmds: Dict[QueryTemplateMD] = {}
         self.qt_enc = QueryTemplateEncoder()
         # Dummy tokens for session begin and session end.
         self.qt_enc.fit([self.SESSION_BEGIN, self.SESSION_END, pd.NA])
@@ -119,14 +128,15 @@ class ForecastMD:
         good_starts = good_starts[good_starts].index
         good_ends = vtxid_group.nth(-1)["query_template"].isin(valid_ends)
         good_ends = good_ends[good_ends].index
-        good_vtxids = (good_starts & good_ends).values
+        good_vtxids = (good_starts.intersection(good_ends)).values
 
         pre_drop_rows = df.shape[0]
         df = df.drop(df[~df["virtual_transaction_id"].isin(good_vtxids)].index)
         post_drop_rows = df.shape[0]
         dropped_rows = pre_drop_rows - post_drop_rows
         if dropped_rows > 0:
-            print(f"Dropped {dropped_rows} rows belonging to torn/unconforming transactions. {post_drop_rows} rows remain.")
+            print(
+                f"Dropped {dropped_rows} rows belonging to torn/unconforming transactions. {post_drop_rows} rows remain.")
 
         # Augment the dataframe while updating internal state.
 
@@ -139,7 +149,10 @@ class ForecastMD:
 
         def record(row):
             qt_enc = row["query_template_enc"]
-            self.qtmds[qt_enc] = self.qtmds.get(qt_enc, QueryTemplateMD())
+            if qt_enc not in self.qtmds:
+                qt = row["query_template"]
+                self.qtmds[qt_enc] = QueryTemplateMD(query_template=qt,
+                                                     query_template_encoding=self.qt_enc.transform(qt))
             self.qtmds[qt_enc].record(row)
 
         print("Recording query template info.")
@@ -229,10 +242,9 @@ class ForecastMD:
 
     def get_qtmd(self, query_template):
         """
-        
         Parameters
         ----------
-        query_template
+        query_template : str
 
         Returns
         -------
@@ -241,37 +253,8 @@ class ForecastMD:
         encoding = self.qt_enc.transform(query_template)
         return self.qtmds[encoding]
 
-    def fit_historical_params(self):
-        if "fit" in self.cache:
-            return self.cache["fit"]
-
-        fit = {}
-        for qt_enc, qtmd in tqdm(self.qtmds.items(), total=len(self.qtmds), desc="Fitting query templates."):
-            print(f"Fitting query template {qt_enc}: {self.qt_enc.inverse_transform(qt_enc)}")
-            fit[qt_enc] = {}
-            params = qtmd.get_historical_params()
-
-            if len(params) == 0:
-                # No parameters.
-                continue
-
-            for idx, col in enumerate(params.columns):
-                fit[qt_enc][idx] = {}
-                if str(params[col].dtype) == "string":
-                    fit[qt_enc][idx]["type"] = "sample"
-                    fit[qt_enc][idx]["sample"] = params[col]
-                    print(
-                        f"Query template {qt_enc} parameter {idx} is a string. Storing values to be sampled.")
-                else:
-                    assert not str(params[col].dtype) == "object", "Bad dtype?"
-                    fit[qt_enc][idx]["type"] = "distfit"
-                    dist = distfit()
-                    dist.fit_transform(params[col], verbose=0)
-                    print(
-                        f"Query template {qt_enc} parameter {idx} fitted to distribution: {dist.model['distr'].name} {dist.model['params']}")
-                    fit[qt_enc][idx]["distfit"] = dist
-        self.cache["fit"] = fit
-        return fit
+    def get_cache(self):
+        return self.cache
 
     def save(self, path):
         with open(path, "wb") as f:

@@ -48,7 +48,7 @@ xmlstarlet edit --inplace --update '/parameters/url' --value "jdbc:postgresql://
 xmlstarlet edit --inplace --update '/parameters/username' --value "${DB_USER}" ${ARTIFACT_CONFIG}
 xmlstarlet edit --inplace --update '/parameters/password' --value "${DB_PASS}" ${ARTIFACT_CONFIG}
 xmlstarlet edit --inplace --update '/parameters/scalefactor' --value "1" ${ARTIFACT_CONFIG}
-xmlstarlet edit --inplace --update '/parameters/works/work/time' --value "120" ${ARTIFACT_CONFIG}
+xmlstarlet edit --inplace --update '/parameters/works/work/time' --value "30" ${ARTIFACT_CONFIG}
 xmlstarlet edit --inplace --update '/parameters/works/work/rate' --value "unlimited" ${ARTIFACT_CONFIG}
 
 # ---
