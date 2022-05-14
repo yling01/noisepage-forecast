@@ -109,10 +109,26 @@ class ForecastMD:
         self.transition_txns = {}
 
         self.arrivals = []
+        self._pq_files = []
 
         self.cache = {}
 
-    def augment(self, df):
+    def augment(self, pq_file):
+        if pq_file in self._pq_files:
+            print(f"ForecastMD object already contains this Parquet file, skipping: {pq_file}")
+            return
+
+        self._pq_files.append(pq_file)
+        df = pd.read_parquet(pq_file)
+        df["log_time"] = df["log_time"].dt.tz_convert("UTC")
+        print(f"{pq_file} has timestamps from {df['log_time'].min()} to {df['log_time'].max()}.")
+        df["query_template"] = df["query_template"].replace("", np.nan)
+        dropna_before = df.shape[0]
+        df = df.dropna(subset=["query_template"])
+        dropna_after = df.shape[0]
+        print(f"Dropped {dropna_before - dropna_after} empty query template rows in {pq_file}. "
+              f"{dropna_after} rows remain.")
+
         # Invalidate the cache.
         self.cache = {}
 

@@ -1,5 +1,15 @@
 FORECAST_FIFO = "forecast.fifo"
 
+# QB5000 directories
+DEBUG_QB5000_ROOT = "../artifacts/QB5000_forecast"
+DEBUG_QB5000_CSV_FOLDER = "../artifacts/train/"
+DEBUG_QB5000_PREPROCESSOR = "/".join((DEBUG_QB5000_ROOT, "out_preprocessor.parquet"))
+DEBUG_QB5000_CLUSTERER = "/".join((DEBUG_QB5000_ROOT, "out_clusterer.parquet"))
+DEBUG_QB5000_MODEL_DIR = "/".join((DEBUG_QB5000_ROOT, "model"))
+DEBUG_QB5000_PREPROCESSOR_TIMESTAMP = "/".join((DEBUG_QB5000_ROOT, "out_clusterer_timestamp.txt"))
+DEBUG_QB5000_FORECASTER = "/".join((DEBUG_QB5000_ROOT, "out_forecaster.csv"))
+
+
 # mysql_to_postgresql.
 DEBUG_MYSQL_LOG = "/home/kapi/admissions/magneto.log.2016-09-04"
 DEBUG_MYSQL_CSV = "/tmp/meowmeow.csv"

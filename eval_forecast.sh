@@ -1,3 +1,4 @@
+#!/bin/bash
 set -euxo pipefail
 
 export DB_USER="forecast_user"
@@ -106,9 +107,9 @@ PGPASSWORD=${DB_PASS} pg_restore --host=localhost --username=${DB_USER} --clean 
 
 # Run pipeline to create a forecast.
 # Ideally, we would then create a query log to replay at this point, but pgreplay barfs too hard.
-python3 ./convert_postgresql_to_split_postgresql.py
-python3 ./convert_split_postgresql_to_parquet.py
-python3 ./convert_parquet_to_split_parquet.py
+#python3 ./convert_postgresql_to_split_postgresql.py
+#python3 ./convert_split_postgresql_to_parquet.py
+#python3 ./convert_parquet_to_split_parquet.py
 #python3 ./convert_parquet_to_forecast.py
 #
 ## ---

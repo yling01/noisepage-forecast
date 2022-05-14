@@ -4,5 +4,10 @@ pglast
 pyarrow
 python-daemon
 pydot
-pygraphviz
 tqdm
+ddsketch
+networkx
+neuralprophet
+matplotlib
+joypy
+pygraphviz

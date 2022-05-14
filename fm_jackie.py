@@ -94,7 +94,7 @@ class Jackie1m1p(ForecastModelABC):
 
     def fit(self, forecast_md):
         model = {}
-        for qt_enc, qtmd in tqdm(forecast_md.qtmds.items(), total=len(forecast_md.qtmds), desc="Fitting query templates."):
+        for qt_enc, qtmd in tqdm(forecast_md.qtmds.items(), total=len(forecast_md.qtmds), desc="Fitting query templates with Jackie1m1p."):
             qt = qtmd._query_template
 
             model[qt] = {}
@@ -136,7 +136,7 @@ class Jackie1m1p(ForecastModelABC):
                 # where N is governed by the historical data available and the resampling window `prediction_interval`,
                 # and num_quantiles is controlled by the `quantiles` functions used.
                 quantiles = [lambda x: x.quantile(qval) for _, qval in self.quantiles_def]
-                tsdf = params_df[param_col].resample(self.prediction_interval).agg(quantiles).astype(float)
+                tsdf = params_df[param_col].resample(self.prediction_interval).agg(quantiles).fillna(0).astype(float)
 
                 # To form the X vector, we roll consecutive `prediction_seq_len` buckets of quantile values together.
                 # Each bucket from before will get the previous buckets prepended to it, padding with 0s if necessary,
