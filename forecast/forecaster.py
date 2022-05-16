@@ -9,7 +9,7 @@ import constants as K
 from model import LSTM, ForecastDataset
 from plumbum import cli
 from preprocessor import Preprocessor
-
+import os
 
 class ClusterForecaster:
     """
@@ -244,13 +244,13 @@ class WorkloadGenerator:
 
 
 class ForecasterCLI(cli.Application):
-    preprocessor_parquet = cli.SwitchAttr(["-p", "--preprocessor-parquet"], str, default=K.DEBUG_QB5000_PREPROCESSOR)
-    clusterer_parquet = cli.SwitchAttr(["-c", "--clusterer-parquet"], str, default=K.DEBUG_QB5000_CLUSTERER)
+    preprocessor_parquet = cli.SwitchAttr(["-p", "--preprocessor-parquet"], str, default=K.DEBUG_QB5000_PREPROCESSOR_OUTPUT)
+    clusterer_parquet = cli.SwitchAttr(["-c", "--clusterer-parquet"], str, default=K.DEBUG_QB5000_CLUSTERER_OUTPUT)
     model_path = cli.SwitchAttr(["-m", "--model-path"], str, default=K.DEBUG_QB5000_MODEL_DIR)
     override = cli.Flag("--override-models")
 
     log_time_md_file = cli.SwitchAttr("--log_md", str, default=K.DEBUG_QB5000_PREPROCESSOR_TIMESTAMP)
-    output_csv = cli.SwitchAttr("--output-csv", str, default=K.DEBUG_QB5000_FORECASTER)
+    output_csv = cli.SwitchAttr("--output-csv", str, default=K.DEBUG_QB5000_FORECASTER_PREDICTION_CSV)
 
     # note: the horizon and the interval are set to be the same as the clustering aggregation interval (250ms)
     pred_horizon = cli.SwitchAttr(["--horizon"], pd.Timedelta, default=pd.Timedelta(2.5e8))
@@ -318,4 +318,6 @@ class ForecasterCLI(cli.Application):
 
 
 if __name__ == "__main__":
+    if not os.path.exists(K.DEBUG_QB5000_MODEL_DIR):
+        os.mkdir(K.DEBUG_QB5000_MODEL_DIR)
     ForecasterCLI.run()

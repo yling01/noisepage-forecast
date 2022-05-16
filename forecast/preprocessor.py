@@ -1,5 +1,6 @@
 import csv
 import glob
+import os.path
 import re
 import time
 from pathlib import Path
@@ -364,6 +365,7 @@ class Preprocessor:
         df.drop(columns=["detail"], inplace=True)
         clock("Extract parameters")
 
+        # note: this is where the placeholders are replaced with real parameters
         print("Substitute parameters into query: ", end="", flush=True)
         df["query_subst"] = self._substitute_params(df, "query_raw", "params")
         df.drop(columns=["query_raw", "params"], inplace=True)
@@ -454,11 +456,11 @@ class PreprocessorCLI(cli.Application):
     ]
 
     query_log_folder = cli.SwitchAttr(
-        "--query-log-folder", str, default=K.DEBUG_QB5000_CSV_FOLDER,
+        "--query-log-folder", str, default=K.DEBUG_QB5000_QUERY_LOG_CSV_FOLDER,
         help="The location containing postgresql*.csv query logs."
     )
     output_parquet = cli.SwitchAttr(
-        "--output-parquet", str, default=K.DEBUG_QB5000_PREPROCESSOR,
+        "--output-parquet", str, default=K.DEBUG_QB5000_PREPROCESSOR_OUTPUT,
         help="The location to write the output Parquet to."
     )
     output_timestamp = cli.SwitchAttr(
@@ -468,10 +470,12 @@ class PreprocessorCLI(cli.Application):
         help="If specified, the min and max timestamps will be output to this file.",
     )
     output_query_templates = cli.SwitchAttr(
-        "--output-query-templates", str, default=None, help="If specified, output location for SQL query templates."
+        "--output-query-templates", str, default=K.DEBUG_QB5000_QUERY_TEMPLATES_CSV,
+        help="If specified, output location for SQL query templates."
     )
     output_queries = cli.SwitchAttr(
-        "--output-queries", str, default=None, help="If specified, output location for SQL queries."
+        "--output-queries", str, default=K.DEBUG_QB5000_SQL_QUERY_CSV,
+        help="If specified, output location for SQL queries."
     )
 
     log_type = cli.SwitchAttr(
@@ -522,6 +526,7 @@ class PreprocessorCLI(cli.Application):
             templates = preprocessor.get_dataframe()["query_template"]
             templates = pd.Series(templates[templates != ""].unique())
             templates.to_csv(self.output_query_templates, header=False, index=False, quoting=csv.QUOTE_ALL)
+
         if self.output_queries is not None:
             queries = preprocessor.get_dataframe()["query_subst"]
             queries = queries[queries != ""]
@@ -529,4 +534,6 @@ class PreprocessorCLI(cli.Application):
 
 
 if __name__ == "__main__":
+    if not os.path.exists(K.DEBUG_QB5000_ROOT):
+        os.mkdir(K.DEBUG_QB5000_ROOT)
     PreprocessorCLI.run()

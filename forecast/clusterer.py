@@ -513,8 +513,8 @@ class Clusterer:
 
 
 class ClustererCLI(cli.Application):
-    preprocessor_parquet = cli.SwitchAttr("--preprocessor-parquet", str, default=K.DEBUG_QB5000_PREPROCESSOR)
-    output_parquet = cli.SwitchAttr("--output-parquet", str, default=K.DEBUG_QB5000_CLUSTERER)
+    preprocessor_parquet = cli.SwitchAttr("--preprocessor-parquet", str, default=K.DEBUG_QB5000_PREPROCESSOR_OUTPUT)
+    output_parquet = cli.SwitchAttr("--output-parquet", str, default=K.DEBUG_QB5000_CLUSTERER_OUTPUT)
 
     def main(self):
         print(f"Loading preprocessor data from {self.preprocessor_parquet}.")
