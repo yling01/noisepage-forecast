@@ -62,7 +62,10 @@ def convert_postgresql_csv_to_parquet(pg_csvlog, pq_path):
         "session_line_num",
         "virtual_transaction_id",
         "transaction_id",
+        "query_subst"
     }
+    # todo: this is the same dataframe from preprocessor in QB5000
+    # todo: except that the subst column (the actual parameterized queries) are not stored
     df = df.drop(columns=set(df.columns) - stored_columns)
     df.to_parquet(pq_path)
 

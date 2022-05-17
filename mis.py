@@ -16,7 +16,7 @@ if __name__ == "__main__":
     # preprocessor = Preprocessor(parquet_path=K.DEBUG_QB5000_PREPROCESSOR_OUTPUT)
 
     # obtain the preprocessed dataframe
-    pq_files = sorted(list(Path(K.DEBUG_POSTGRESQL_PARQUET_FOLDER).glob("*parquet")))
+    pq_files = sorted(list(Path(K.DEBUG_POSTGRESQL_PARQUET_FOLDER).glob("*.parquet")))
     df = pd.concat(pd.read_parquet(pq_file) for pq_file in pq_files)
 
     # only retain the query_template and query_subst columns

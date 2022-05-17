@@ -28,6 +28,7 @@ def main():
     split_folder = Path(DEBUG_SPLIT_POSTGRESQL_FOLDER)
     shutil.rmtree(split_folder, ignore_errors=True)
 
+    # get the query log
     csvlog_folder = DEBUG_POSTGRESQL_CSV_FOLDER
     csvlog_paths = sorted(list(Path(csvlog_folder).glob("*.csv")))
     print(f"Processing {csvlog_folder}, writing to {DEBUG_SPLIT_POSTGRESQL_FOLDER}.")
