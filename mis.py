@@ -1,29 +1,40 @@
+import numpy as np
 import pandas as pd
 import psycopg
 import constants as K
-from preprocessor import Preprocessor
 import collections
 from sql_metadata import Parser
 from tqdm import tqdm
 import os
 from pathlib import Path
+# from convert_split_postgresql_to_parquet import _substitute
+from sql_util import substitute
+
+
+def _substitute(row):
+    query, params = row["query_template"], row["query_params"]
+    if query is pd.NA or query is np.nan:
+        return pd.NA
+    keys = list(map(lambda x: f'${x}', range(1, len(params) + 1)))
+    params_as_dict = dict(zip(keys, params))
+    return substitute(str(query), params_as_dict, onerror="ignore")
+
 
 if __name__ == "__main__":
     # always restore the forecast_db from dump
     os.system(K.DEBUG_RESTORE_DB_COMMAND)
-
-    # obtain the preprocessor output containing the query templates and the actual queries
-    # preprocessor = Preprocessor(parquet_path=K.DEBUG_QB5000_PREPROCESSOR_OUTPUT)
 
     # obtain the preprocessed dataframe
     pq_files = sorted(list(Path(K.DEBUG_POSTGRESQL_PARQUET_FOLDER).glob("*.parquet")))
     df = pd.concat(pd.read_parquet(pq_file) for pq_file in pq_files)
 
     # only retain the query_template and query_subst columns
-    relevant_columns = {"query_template", "query_subst"}
+    relevant_columns = {"query_template", "query_params"}
     df = df.drop(columns=set(df.columns) - relevant_columns)
 
-    # df = preprocessor.get_dataframe().drop(columns=["query_params"])
+    # note: executing the following two lines in a rather awkward order due to SettingWithCopyWarning
+    # note: YJ thinks it's okay to switch the two, but the stake is a bit high
+    df["query_subst"] = df.loc[:, ("query_template", "query_params")].apply(_substitute, axis=1)
     df_insert_delete = df[df["query_template"].str.contains("^(?:UPDATE|INSERT|DELETE)+")]
 
     # get all tables
@@ -53,6 +64,9 @@ if __name__ == "__main__":
         after = collections.defaultdict(int)
 
         # if insert or delete query, get the change in numer of tuples for all tables
+        # note: cur.rowcount can get you the number of records affected by the operation, but DOES NOT
+        # note: tell you how many records are affected in each table.
+        # note: YJ thinks it might be safer to execute count(*) for each table before and after the query
         if query_type == "DELETE" or query_type == "INSERT":
             if template not in delta_df.index:
                 delta_df.loc[template] = dict(zip(columns, [0 for _ in columns]))
@@ -65,10 +79,6 @@ if __name__ == "__main__":
 
         try:
             cur.execute(query)
-            # tune postgres on andy's box
-            # cmu-db/noisepage-forecast
-            # cur.rowcount to get number of rows affected, this saves 2 SELECT COUNT(*) queries
-            # with conn.transaction() <-- this starts a subtransaction
             conn.commit()
         except Exception as e:
             if query_type == "DELETE":

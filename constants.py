@@ -1,8 +1,8 @@
 FORECAST_FIFO = "forecast.fifo"
 
 # QB5000 directories
-DEBUG_QB5000_ROOT = "../artifacts/QB5000_forecast"
-DEBUG_QB5000_QUERY_LOG_CSV_FOLDER = "../artifacts/train/"
+DEBUG_QB5000_ROOT = "./artifacts/QB5000_forecast"
+DEBUG_QB5000_QUERY_LOG_CSV_FOLDER = "./artifacts/train/"
 DEBUG_QB5000_PREPROCESSOR_OUTPUT = "/".join((DEBUG_QB5000_ROOT, "out_preprocessor.parquet"))
 DEBUG_QB5000_PREPROCESSOR_TIMESTAMP = "/".join((DEBUG_QB5000_ROOT, "out_clusterer_timestamp.txt"))
 DEBUG_QB5000_QUERY_TEMPLATES_CSV = "/".join((DEBUG_QB5000_ROOT, "out_query_templates.csv"))
@@ -38,7 +38,7 @@ DEFAULT_PASS = "forecast_pass"
 DB_CONN_STRING = f"host=127.0.0.1 port=5432 dbname={DEFAULT_DB} user={DEFAULT_USER} password={DEFAULT_PASS} sslmode=disable application_name=psql"
 
 # Database dump directory
-DEBUG_DB_DUMP_DIR = "../artifacts/dump"
+DEBUG_DB_DUMP_DIR = "./artifacts/dump"
 DEBUG_RESTORE_DB_COMMAND = f"PGPASSWORD={DEFAULT_PASS} pg_restore --host=localhost --username={DEFAULT_USER} --clean --if-exists --dbname={DEFAULT_DB} {DEBUG_DB_DUMP_DIR}"
 
 PG_LOG_DTYPES = {
