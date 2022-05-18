@@ -7,7 +7,7 @@ import sklearn.metrics.pairwise
 import sklearn.neighbors
 import sklearn.preprocessing
 from plumbum import cli
-from preprocessor import Preprocessor
+from tmp_preprocessor import Preprocessor
 from sklearn.cluster import DBSCAN
 import constants as K
 
@@ -520,7 +520,7 @@ class ClustererCLI(cli.Application):
         print(f"Loading preprocessor data from {self.preprocessor_parquet}.")
         preprocessor = Preprocessor(parquet_path=self.preprocessor_parquet)
 
-        # TODO(Mike): This should not be hardcoded, since many components
+        # TODO (Mike): This should not be hardcoded, since many components
         # of the forecaster depend on this. Should be a shared constant somewhere.
         cluster_interval = pd.Timedelta(milliseconds=250)
         df = preprocessor.get_grouped_dataframe_interval(cluster_interval)

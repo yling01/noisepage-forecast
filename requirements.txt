@@ -11,3 +11,8 @@ neuralprophet
 matplotlib
 joypy
 pygraphviz
+scikit-learn
+psycopg
+sql-metadata
+plumbum
+pandarallel

@@ -6,9 +6,9 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import constants as K
-from model import LSTM, ForecastDataset
+from tmp_model import LSTM, ForecastDataset
 from plumbum import cli
-from preprocessor import Preprocessor
+from tmp_preprocessor import Preprocessor
 import os
 
 class ClusterForecaster:
