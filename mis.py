@@ -27,6 +27,7 @@ if __name__ == "__main__":
     # obtain the preprocessed dataframe
     pq_files = sorted(list(Path(K.DEBUG_POSTGRESQL_PARQUET_FOLDER).glob("*.parquet")))
     df = pd.concat(pd.read_parquet(pq_file) for pq_file in pq_files)
+    df.set_index("log_time", inplace=True)
 
     # write start and end time
     Path(K.DEBUG_QB5000_ROOT).mkdir(parents=True, exist_ok=True)

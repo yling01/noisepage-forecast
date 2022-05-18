@@ -526,6 +526,7 @@ class ClustererCLI(cli.Application):
         df = preprocessor.get_grouped_dataframe_interval(cluster_interval)
         df.index.rename(["query_template", "log_time_s"], inplace=1)
         print("Clustering query templates.")
+        df.to_csv("ref.csv")
         clusterer = Clusterer(df, cluster_interval=cluster_interval)
         print("Generating cluster assignments.")
         clusterer.assignment_df.to_parquet(self.output_parquet)

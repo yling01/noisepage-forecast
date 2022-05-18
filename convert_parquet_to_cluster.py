@@ -523,12 +523,20 @@ def main():
     pq_files = sorted(list(Path(K.DEBUG_POSTGRESQL_PARQUET_FOLDER).glob("*.parquet")))
     df = pd.concat(pd.read_parquet(pq_file) for pq_file in pq_files)
 
+    # note: the dataframe generated from the parquet does not have an index column, need to add this explicitly
+    df.set_index("log_time", inplace=True)
+
+    # note (IMPORTANT): filter the table so that the clusterer generates the same output, not working currently
+    df = df[df["query_template"].str.contains("^(?:UPDATE|INSERT|DELETE|SELECT)+")]
+
     # todo (Mike): This should not be hardcoded, since many components
     # todo: of the forecaster depend on this. Should be a shared constant somewhere.
     cluster_interval = pd.Timedelta(milliseconds=250)
     df = query_log_util.get_grouped_dataframe_interval(df, cluster_interval)
     df.index.rename(["query_template", "log_time_s"], inplace=1)
+
     print("Clustering query templates.")
+    df.to_csv("new.csv")
     clusterer = Clusterer(df, cluster_interval=cluster_interval)
     print("Generating cluster assignments.")
     clusterer.assignment_df.to_parquet(K.DEBUG_QB5000_CLUSTERER_OUTPUT)
