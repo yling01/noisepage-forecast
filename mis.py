@@ -28,6 +28,12 @@ if __name__ == "__main__":
     pq_files = sorted(list(Path(K.DEBUG_POSTGRESQL_PARQUET_FOLDER).glob("*.parquet")))
     df = pd.concat(pd.read_parquet(pq_file) for pq_file in pq_files)
 
+    # write start and end time
+    Path(K.DEBUG_QB5000_ROOT).mkdir(parents=True, exist_ok=True)
+    with open(K.DEBUG_QB5000_PREPROCESSOR_TIMESTAMP, "w+") as ts_file:
+        ts_file.write(df["log_time"].min().isoformat() + "\n")
+        ts_file.write(df["log_time"].max().isoformat() + "\n")
+
     # only retain the query_template and query_subst columns
     relevant_columns = {"query_template", "query_params"}
     df = df.drop(columns=set(df.columns) - relevant_columns)
