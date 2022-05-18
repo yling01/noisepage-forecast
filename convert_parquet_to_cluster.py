@@ -7,9 +7,11 @@ import sklearn.metrics.pairwise
 import sklearn.neighbors
 import sklearn.preprocessing
 from plumbum import cli
-from preprocessor import Preprocessor
 from sklearn.cluster import DBSCAN
 import constants as K
+from pathlib import Path
+import query_log_util
+
 
 class Clusterer:
     """
@@ -46,11 +48,11 @@ class Clusterer:
     """
 
     def __init__(
-        self,
-        dataframe,
-        n_samples=10000,
-        rho=0.8,
-        cluster_interval=pd.Timedelta(seconds=1),
+            self,
+            dataframe,
+            n_samples=10000,
+            rho=0.8,
+            cluster_interval=pd.Timedelta(seconds=1),
     ):
         """
         Cluster the provided dataframe according to QueryBot5000.
@@ -318,11 +320,11 @@ class Clusterer:
             last_cluster_element = self.cluster_sizes[old_assignment] == 1
             # Template still belongs to its old cluster.
             still_belongs = (
-                Clusterer._similarity(
-                    self._query_df(self._df, template, timestamps).values,
-                    self._query_series(self.centers[old_assignment], timestamps).values,
-                )
-                > self.rho
+                    Clusterer._similarity(
+                        self._query_df(self._df, template, timestamps).values,
+                        self._query_series(self.centers[old_assignment], timestamps).values,
+                    )
+                    > self.rho
             )
             # If the template still belongs.
             if last_cluster_element or still_belongs:
@@ -339,11 +341,11 @@ class Clusterer:
         if neighbors is None:
             for cluster in self.centers.keys():
                 if (
-                    self._similarity(
-                        self._query_df(self._df, template, timestamps).values,
-                        self._query_series(self.centers[cluster], timestamps).values,
-                    )
-                    > self.rho
+                        self._similarity(
+                            self._query_df(self._df, template, timestamps).values,
+                            self._query_series(self.centers[cluster], timestamps).values,
+                        )
+                        > self.rho
                 ):
                     new_assignment = cluster
                     break
@@ -455,11 +457,11 @@ class Clusterer:
                     while root[neighbor] is not None:
                         neighbor = root[neighbor]
                     is_similar = (
-                        self._similarity(
-                            self._query_series(self.centers[cluster], timestamps).values,
-                            self._query_series(self.centers[clusters[neighbor]], timestamps).values,
-                        )
-                        > self.rho
+                            self._similarity(
+                                self._query_series(self.centers[cluster], timestamps).values,
+                                self._query_series(self.centers[clusters[neighbor]], timestamps).values,
+                            )
+                            > self.rho
                     )
                     if cluster != clusters[neighbor] and is_similar:
                         merge_cluster = clusters[neighbor]
@@ -511,23 +513,25 @@ class Clusterer:
             "query_template"
         )
 
-
     # preprocessor_parquet = cli.SwitchAttr("--preprocessor-parquet", str, default=K.DEBUG_QB5000_PREPROCESSOR_OUTPUT)
     # output_parquet = cli.SwitchAttr("--output-parquet", str, default=K.DEBUG_QB5000_CLUSTERER_OUTPUT)
 
-def main(self):
-    print(f"Loading preprocessor data from {self.preprocessor_parquet}.")
-    preprocessor = Preprocessor(parquet_path=self.preprocessor_parquet)
+
+def main():
+    print(f"Loading preprocessor data from {K.DEBUG_POSTGRESQL_PARQUET_FOLDER}.")
+    # obtain the preprocessed dataframe
+    pq_files = sorted(list(Path(K.DEBUG_POSTGRESQL_PARQUET_FOLDER).glob("*.parquet")))
+    df = pd.concat(pd.read_parquet(pq_file) for pq_file in pq_files)
 
     # todo (Mike): This should not be hardcoded, since many components
     # todo: of the forecaster depend on this. Should be a shared constant somewhere.
     cluster_interval = pd.Timedelta(milliseconds=250)
-    df = preprocessor.get_grouped_dataframe_interval(cluster_interval)
+    df = query_log_util.get_grouped_dataframe_interval(df, cluster_interval)
     df.index.rename(["query_template", "log_time_s"], inplace=1)
     print("Clustering query templates.")
     clusterer = Clusterer(df, cluster_interval=cluster_interval)
     print("Generating cluster assignments.")
-    clusterer.assignment_df.to_parquet(self.output_parquet)
+    clusterer.assignment_df.to_parquet(K.DEBUG_QB5000_CLUSTERER_OUTPUT)
     print("Done!")
 
 
