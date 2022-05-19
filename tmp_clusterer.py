@@ -530,6 +530,7 @@ class ClustererCLI(cli.Application):
         clusterer = Clusterer(df, cluster_interval=cluster_interval)
         print("Generating cluster assignments.")
         clusterer.assignment_df.to_parquet(self.output_parquet)
+        clusterer.assignment_df.to_csv("ref_assignment.csv")
         print("Done!")
 
 

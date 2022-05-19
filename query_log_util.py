@@ -11,10 +11,8 @@ def get_grouped_dataframe_interval(df: pd.DataFrame, interval: pd.Timedelta = No
              Optionally grouped on query template and log time.
     """
 
-    # todo: might be a good idea to use a globally defined dictionary/enum for query_template column
     assert ("query_template" in df)
 
-    # todo: need to check if the query_template column name is correct
     if interval is None:
         gb = df.groupby("query_template").size()
         gb.drop("", axis=0, inplace=True)
