@@ -1,4 +1,5 @@
 import pandas as pd
+import re
 
 
 def get_grouped_dataframe_interval(df: pd.DataFrame, interval: pd.Timedelta = None) -> pd.DataFrame:
@@ -43,3 +44,15 @@ def sample_params(df: pd.DataFrame, query: str, n: int, replace: bool = True, we
     weight_vec = params if weights else None
     sample = params.sample(n, replace=replace, weights=weight_vec)
     return sample.index.to_numpy()
+
+
+def parse_time_delta(time_delta_as_string: str) -> pd.Timedelta:
+    """
+    Parse a string representation of time interval and construct a pd.Timedelta object
+    @param time_delta_as_string: string representation of a time interval following (\d+)( *)(\w+)
+    @return: a pd.Timedelta object constructed from the string representation
+    """
+    m = re.match(r"(?P<time>\d+)( *)(?P<unit>\w+)", time_delta_as_string)
+    time = int(m.group("time"))
+    unit = m.group("unit")
+    return pd.Timedelta(time, unit)

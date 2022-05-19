@@ -36,3 +36,6 @@ dist/
 
 # Python pickle files can get pretty big.
 *.pkl
+
+# YJ's local testing script
+test.py

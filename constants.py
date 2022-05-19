@@ -12,6 +12,9 @@ DEBUG_QB5000_MODEL_DIR = "/".join((DEBUG_QB5000_ROOT, "model"))
 DEBUG_QB5000_FORECASTER_PREDICTION_CSV = "/".join((DEBUG_QB5000_ROOT, "out_forecaster.csv"))
 DEBUG_QB5000_INSERT_DELETE_CSV = "/".join((DEBUG_QB5000_ROOT, "out_insert_delete.csv"))
 
+# QB5000 Hyper parameters
+TIME_INTERVAL = "250ms"
+
 # SQL statement
 GET_TABLE_NAMES = "SELECT tablename FROM pg_catalog.pg_tables WHERE schemaname != 'pg_catalog' AND schemaname != 'information_schema'"
 

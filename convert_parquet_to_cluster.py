@@ -194,9 +194,7 @@ def main():
     # note: the dataframe generated from the parquet does not have an index column, need to add this explicitly
     df.set_index("log_time", inplace=True)
 
-    # todo (Mike): This should not be hardcoded, since many components
-    # todo: of the forecaster depend on this. Should be a shared constant somewhere.
-    cluster_interval = pd.Timedelta(milliseconds=250)
+    cluster_interval = query_log_util.parse_time_delta(K.TIME_INTERVAL)
     df = query_log_util.get_grouped_dataframe_interval(df, cluster_interval)
     df.index.rename(["query_template", "log_time_s"], inplace=1)
 
