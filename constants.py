@@ -9,11 +9,15 @@ DEBUG_QB5000_QUERY_TEMPLATES_CSV = "/".join((DEBUG_QB5000_ROOT, "out_query_templ
 DEBUG_QB5000_SQL_QUERY_CSV = "/".join((DEBUG_QB5000_ROOT, "out_sql_query.csv"))
 DEBUG_QB5000_CLUSTERER_OUTPUT = "/".join((DEBUG_QB5000_ROOT, "out_clusterer.parquet"))
 DEBUG_QB5000_MODEL_DIR = "/".join((DEBUG_QB5000_ROOT, "model"))
+DEBUG_QB5000_MODEL_DIR_NEW = "/".join((DEBUG_QB5000_ROOT, "model_new"))
 DEBUG_QB5000_FORECASTER_PREDICTION_CSV = "/".join((DEBUG_QB5000_ROOT, "out_forecaster.csv"))
+DEBUG_QB5000_FORECASTER_PREDICTION_CSV_NEW = "/".join((DEBUG_QB5000_ROOT, "out_forecaster_new.csv"))
 DEBUG_QB5000_INSERT_DELETE_CSV = "/".join((DEBUG_QB5000_ROOT, "out_insert_delete.csv"))
 
 # QB5000 Hyper parameters
 TIME_INTERVAL = "250ms"
+PREDICTION_LENGTH = 10
+OVERWRITE_MODEL = False
 
 # SQL statement
 GET_TABLE_NAMES = "SELECT tablename FROM pg_catalog.pg_tables WHERE schemaname != 'pg_catalog' AND schemaname != 'information_schema'"

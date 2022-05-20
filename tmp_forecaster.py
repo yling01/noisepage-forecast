@@ -229,13 +229,13 @@ class WorkloadGenerator:
                 template,
                 np.tile(self._preprocessor.sample_params(template, 1)[0], (int(count), 1)),
             )
-            for template, count in zip(templates.index.values, templates.values)
+            for template, count in zip(templates.index.values, templates.values) if template.startswith(("INSERT", "DELETE"))
         ]
 
         workload = [
             self._preprocessor.substitute_params(template, param_vec)
             for template, param_vecs in templates_with_param_vecs
-            for param_vec in param_vecs
+            for param_vec in param_vecs if template.startswith(("INSERT", "DELETE"))
         ]
         workload = pd.DataFrame(workload, columns=["query"])
         predicted_queries = workload.groupby("query").size().sort_values(ascending=False)
@@ -247,7 +247,7 @@ class ForecasterCLI(cli.Application):
     preprocessor_parquet = cli.SwitchAttr(["-p", "--preprocessor-parquet"], str, default=K.DEBUG_QB5000_PREPROCESSOR_OUTPUT)
     clusterer_parquet = cli.SwitchAttr(["-c", "--clusterer-parquet"], str, default=K.DEBUG_QB5000_CLUSTERER_OUTPUT)
     model_path = cli.SwitchAttr(["-m", "--model-path"], str, default=K.DEBUG_QB5000_MODEL_DIR)
-    override = cli.Flag("--override-models")
+    override = cli.Flag("--override-models", default=True)
 
     log_time_md_file = cli.SwitchAttr("--log_md", str, default=K.DEBUG_QB5000_PREPROCESSOR_TIMESTAMP)
     output_csv = cli.SwitchAttr("--output-csv", str, default=K.DEBUG_QB5000_FORECASTER_PREDICTION_CSV)
