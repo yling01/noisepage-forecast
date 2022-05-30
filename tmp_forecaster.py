@@ -6,7 +6,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import constants as K
-from tmp_model import LSTM, ForecastDataset
+from QB5000_0_model import LSTM, ForecastDataset
 from plumbum import cli
 from tmp_preprocessor import Preprocessor
 import os

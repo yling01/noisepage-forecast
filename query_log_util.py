@@ -5,6 +5,12 @@ from sql_util import substitute
 
 
 def substitute_params(query_template, params):
+    """
+    Substitute the placeholder in a query template with actual query parameters.
+    @param query_template: query template with placeholder for parameters
+    @param params: extracted parameters
+    @return: a parameterized query
+    """
     assert type(query_template) == str
     query = query_template
     keys = [f"${i}" for i in range(1, len(params) + 1)]
@@ -15,6 +21,12 @@ def substitute_params(query_template, params):
 
 
 def substitute_given_row(row):
+    """
+    Substitute the placeholder in a query template with actual query parameters.
+    This is a wrapper for substitute_params method above with additional NA checking.
+    @param row: a row in a dataframe, has to have "query_template" and "query_params" columns
+    @return: a parameterized query
+    """
     query, params = row["query_template"], row["query_params"]
     if query is pd.NA or query is np.nan:
         return pd.NA

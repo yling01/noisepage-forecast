@@ -6,10 +6,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import constants as K
-from tmp_model import LSTM, ForecastDataset
-from plumbum import cli
-from tmp_preprocessor import Preprocessor
-import os
+from QB5000_0_model import LSTM, ForecastDataset
 import query_log_util
 
 
@@ -216,47 +213,12 @@ class WorkloadGenerator:
         #  does not change over time
         templates = templates * cluster_count
 
-        # TODO(Mike): The true sample of parameters might be too inefficient,
-        #  But using the same parameters for all queries is not representative enough.
+        # only care about insert and delete query templates
+        insert_delete_templates = templates[templates.index.str.contains("^(?:DELETE|INSERT)")]
 
-        # True sample of parameters.
-        # templates_with_param_vecs = [
-        #     (template, self._preprocessor.sample_params(template, int(count)))
-        #     for template, count in zip(templates.index.values, templates.values)
-        # ]
+        insert_delete_templates = insert_delete_templates.sort_values(ascending=False, by="count").astype(int)
 
-        # only retain the query_template and query_subst columns
-        relevant_columns = {"query_template", "query_params"}
-        df = self.df.drop(columns=set(self.df.columns) - relevant_columns)
-
-        # note: the query_params column has to be tuples for .size method to work
-        df["query_params"] = df["query_params"].apply(tuple)
-
-        # note: the size of the grouped_by_params dataframe is a lot bigger than the original one from preprocessor
-        gbp = df.groupby(["query_template", "query_params"]).size()
-        grouped_by_params = pd.DataFrame(gbp, columns=["count"])
-        grouped_by_params = grouped_by_params[~grouped_by_params.index.isin([("", ())])]
-
-        # Sample parameters once. Then use the same parameters for all queries in the query template.
-        templates_with_param_vecs = [
-            (
-                template,
-                np.tile(query_log_util.sample_params(grouped_by_params, template, 1)[0], (int(count), 1)),
-            )
-            for template, count in zip(templates.index.values, templates.values) if
-            template.startswith(("INSERT", "DELETE"))
-        ]
-
-        # note: we only care about insert and delete queries
-        workload = [
-            query_log_util.substitute_params(template, param_vec)
-            for template, param_vecs in templates_with_param_vecs
-            for param_vec in param_vecs if template.startswith(("INSERT", "DELETE"))
-        ]
-        workload = pd.DataFrame(workload, columns=["query"])
-        predicted_queries = workload.groupby("query").size().sort_values(ascending=False)
-
-        return predicted_queries
+        return insert_delete_templates
 
 
 def main():
@@ -299,8 +261,7 @@ def main():
     wg = WorkloadGenerator(df, assignment_df)
     clusters = set(assignment_df["cluster"].values)
 
-    # note: instead of hard code the start and end timestamp,
-    #  read the start and the end of the log dynamically
+    # note: instead of hard code the start and end timestamp, read the start and the end of the log dynamically
     with open(K.DEBUG_QB5000_PREPROCESSOR_TIMESTAMP) as f:
         log_start_time = pd.Timestamp(f.readline().strip())
         log_end_time = pd.Timestamp(f.readline().strip())
