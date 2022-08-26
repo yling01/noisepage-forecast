@@ -70,7 +70,7 @@ cd -
 PGPASSWORD=${DB_PASS} pg_dump --host=localhost --username=${DB_USER} --format=directory --file=${DIR_DUMP} ${DB_NAME}
 
 # Clear old log files.
-sudo bash -c "rm -rf /var/lib/postgresql/14/main/log/*"
+sudo bash -c "rm -rf /var/lib/postgresql/9.6/main/pg_log/*"
 
 # Enable logging.
 PGPASSWORD=${DB_PASS} psql --host=localhost --dbname=${DB_NAME} --username=${DB_USER} --command="ALTER SYSTEM SET log_destination='csvlog'"
@@ -87,7 +87,7 @@ java -jar benchbase.jar -b ${BENCHMARK} -c ${ARTIFACT_CONFIG} --execute=true
 cd -
 
 # Copy the log files.
-sudo bash -c "cat /var/lib/postgresql/14/main/log/*.csv > ${DIR_TRAIN}/query_log.csv"
+sudo bash -c "cat /var/lib/postgresql/9.6/main/pg_log/*.csv > ${DIR_TRAIN}/query_log.csv"
 
 # Disable logging.
 PGPASSWORD=${DB_PASS} psql --host=localhost --dbname=${DB_NAME} --username=${DB_USER} --command="ALTER SYSTEM SET log_destination='stderr'"

@@ -6,10 +6,9 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import constants as K
-from QB5000_0_model import LSTM, ForecastDataset
-from plumbum import cli
-from tmp_preprocessor import Preprocessor
-import os
+from tmp_model import LSTM, ForecastDataset
+import query_log_util
+
 
 class ClusterForecaster:
     """
@@ -44,14 +43,14 @@ class ClusterForecaster:
         return m[0]
 
     def __init__(
-        self,
-        train_df,
-        prediction_seqlen,
-        prediction_interval,
-        prediction_horizon,
-        save_path,
-        top_k=5,
-        override=False,
+            self,
+            train_df,
+            prediction_seqlen,
+            prediction_interval,
+            prediction_horizon,
+            save_path,
+            top_k=5,
+            override=False,
     ):
         """Construct the ClusterForecaster object.
         Parameters
@@ -179,16 +178,17 @@ class WorkloadGenerator:
     representative workload.
     """
 
-    def __init__(self, preprocessor, assignment_df):
-        df = preprocessor.get_grouped_dataframe_interval()
+    def __init__(self, df, assignment_df):
+        self.df = df
+
+        grouped_df = query_log_util.get_grouped_dataframe_interval(df)
 
         # Join to cluster and group by.
-        joined = df.join(assignment_df)
+        joined = grouped_df.join(assignment_df)
 
         # Calculate weight of template within each cluster.
         joined["cluster"].fillna(-1, inplace=True)
         summed = joined.groupby(["cluster", "query_template"]).sum()
-        self._preprocessor = preprocessor
         self._percentages = summed / summed.groupby(level=0).sum()
 
     def get_workload(self, cluster, cluster_count):
@@ -222,18 +222,31 @@ class WorkloadGenerator:
         #     for template, count in zip(templates.index.values, templates.values)
         # ]
 
-        # Sample parameters once. Then use the same parameters
-        # for all queries in the query template.
+        # only retain the query_template and query_subst columns
+        relevant_columns = {"query_template", "query_params"}
+        df = self.df.drop(columns=set(self.df.columns) - relevant_columns)
+
+        # note: the query_params column has to be tuples for .size method to work
+        df["query_params"] = df["query_params"].apply(tuple)
+
+        # note: the size of the grouped_by_params dataframe is a lot bigger than the original one from preprocessor
+        gbp = df.groupby(["query_template", "query_params"]).size()
+        grouped_by_params = pd.DataFrame(gbp, columns=["count"])
+        grouped_by_params = grouped_by_params[~grouped_by_params.index.isin([("", ())])]
+
+        # Sample parameters once. Then use the same parameters for all queries in the query template.
         templates_with_param_vecs = [
             (
                 template,
-                np.tile(self._preprocessor.sample_params(template, 1)[0], (int(count), 1)),
+                np.tile(query_log_util.sample_params(grouped_by_params, template, 1)[0], (int(count), 1)),
             )
-            for template, count in zip(templates.index.values, templates.values) if template.startswith(("INSERT", "DELETE"))
+            for template, count in zip(templates.index.values, templates.values) if
+            template.startswith(("INSERT", "DELETE"))
         ]
 
+        # note: we only care about insert and delete queries
         workload = [
-            self._preprocessor.substitute_params(template, param_vec)
+            query_log_util.substitute_params(template, param_vec)
             for template, param_vecs in templates_with_param_vecs
             for param_vec in param_vecs if template.startswith(("INSERT", "DELETE"))
         ]
@@ -243,81 +256,71 @@ class WorkloadGenerator:
         return predicted_queries
 
 
-class ForecasterCLI(cli.Application):
-    preprocessor_parquet = cli.SwitchAttr(["-p", "--preprocessor-parquet"], str, default=K.DEBUG_QB5000_PREPROCESSOR_OUTPUT)
-    clusterer_parquet = cli.SwitchAttr(["-c", "--clusterer-parquet"], str, default=K.DEBUG_QB5000_CLUSTERER_OUTPUT)
-    model_path = cli.SwitchAttr(["-m", "--model-path"], str, default=K.DEBUG_QB5000_MODEL_DIR)
-    override = cli.Flag("--override-models", default=True)
+def main():
+    # note: the prediction horizon and prediction interval are temporarily set to be the same as the interval
+    # note: at which the query logs are aggregated to be clustered
+    pred_horizon = pred_interval = query_log_util.parse_time_delta(K.TIME_INTERVAL)
 
-    log_time_md_file = cli.SwitchAttr("--log_md", str, default=K.DEBUG_QB5000_PREPROCESSOR_TIMESTAMP)
-    output_csv = cli.SwitchAttr("--output-csv", str, default=K.DEBUG_QB5000_FORECASTER_PREDICTION_CSV)
+    # create prediction model directory if necessary
+    Path(K.DEBUG_QB5000_MODEL_DIR_NEW).mkdir(parents=True, exist_ok=True)
 
-    # note: the horizon and the interval are set to be the same as the clustering aggregation interval (250ms)
-    pred_horizon = cli.SwitchAttr(["--horizon"], pd.Timedelta, default=pd.Timedelta(2.5e8))
-    pred_interval = cli.SwitchAttr(["--interval"], pd.Timedelta, default=pd.Timedelta(2.5e8))
+    # note: directly read the preprocessed parquet
+    pq_files = sorted(list(Path(K.DEBUG_POSTGRESQL_PARQUET_FOLDER).glob("*.parquet")))
+    df = pd.concat(pd.read_parquet(pq_file) for pq_file in pq_files)
 
-    # note: sequence length is set to 10, an arbitrary setting for now
-    pred_seqlen = cli.SwitchAttr(["--seqlen"], int, default=10)
+    # note: the dataframe generated from the parquet does not have an index column, need to add this explicitly
+    df.set_index("log_time", inplace=True)
+    grouped_df = query_log_util.get_grouped_dataframe_interval(df, pred_interval)
+    grouped_df.index.rename(["query_template", "log_time_s"], inplace=1)
 
-    def main(self):
+    print("reading cluster assignments.")
+    assignment_df = pd.read_parquet(K.DEBUG_QB5000_CLUSTERER_OUTPUT)
 
-        print(f"Loading preprocessor data from {self.preprocessor_parquet}.")
-        preprocessor = Preprocessor(parquet_path=self.preprocessor_parquet)
+    # Join to cluster and group by (cluster,time).
+    joined = grouped_df.join(assignment_df)
+    joined["cluster"].fillna(-1, inplace=True)
+    clustered_df = joined.groupby(["cluster", "log_time_s"]).sum()
 
-        df = preprocessor.get_grouped_dataframe_interval(self.pred_interval)
-        df.index.rename(["query_template", "log_time_s"], inplace=1)
+    # TODO (MIKE): check how many templates are not part of known clusters (i.e. cluster = -1).
 
-        print("reading cluster assignments.")
-        assignment_df = pd.read_parquet(self.clusterer_parquet)
+    forecaster = ClusterForecaster(
+        clustered_df,
+        prediction_seqlen=K.PREDICTION_LENGTH,
+        prediction_interval=pred_interval,
+        prediction_horizon=pred_horizon,
+        save_path=K.DEBUG_QB5000_MODEL_DIR_NEW,
+        override=K.OVERWRITE_MODEL,
+    )
 
-        # Join to cluster and group by (cluster,time).
-        joined = df.join(assignment_df)
-        joined["cluster"].fillna(-1, inplace=True)
-        clustered_df = joined.groupby(["cluster", "log_time_s"]).sum()
+    # Use preprocessor to sample template and parameter distributions.
+    wg = WorkloadGenerator(df, assignment_df)
+    clusters = set(assignment_df["cluster"].values)
 
-        # TODO(MIKE): check how many templates are not part of known
-        # clusters (i.e. cluster = -1).
+    # note: instead of hard code the start and end timestamp,
+    #  read the start and the end of the log dynamically
+    with open(K.DEBUG_QB5000_PREPROCESSOR_TIMESTAMP) as f:
+        log_start_time = pd.Timestamp(f.readline().strip())
+        log_end_time = pd.Timestamp(f.readline().strip())
 
-        forecaster = ClusterForecaster(
-            clustered_df,
-            prediction_seqlen=self.pred_seqlen,
-            prediction_interval=self.pred_interval,
-            prediction_horizon=self.pred_horizon,
-            save_path=self.model_path,
-            override=self.override,
-        )
+    # note: use half of the log as training data and the other half as validation
+    start_ts = log_start_time + (log_end_time - log_start_time) / 2
+    end_ts = log_end_time
 
-        # Use preprocessor to sample template and parameter distributions.
-        wg = WorkloadGenerator(preprocessor, assignment_df)
-        clusters = set(assignment_df["cluster"].values)
+    cluster_predictions = []
+    for cluster in clusters:
+        start_time = pd.Timestamp(start_ts)
+        end_time = pd.Timestamp(end_ts)
+        pred_df = forecaster.predict(clustered_df, cluster, start_time, end_time)
+        if pred_df is None:
+            # No data or model for cluster.
+            continue
+        prediction_count = pred_df["count"].sum()
+        print(f"Prediction for {cluster}: {prediction_count}")
+        cluster_predictions.append(wg.get_workload(cluster, prediction_count))
 
-        # note: instead of hard code the start and end timestamp,
-        #  read the start and the end of the log dynamically
-        with open(self.log_time_md_file) as f:
-            log_start_time = pd.Timestamp(f.readline().strip())
-            log_end_time = pd.Timestamp(f.readline().strip())
-
-        # note: use half of the log as training data and the other half as validation
-        start_ts = log_start_time + (log_end_time - log_start_time) / 2
-        end_ts = log_end_time
-
-        cluster_predictions = []
-        for cluster in clusters:
-            start_time = pd.Timestamp(start_ts)
-            end_time = pd.Timestamp(end_ts)
-            pred_df = forecaster.predict(clustered_df, cluster, start_time, end_time)
-            if pred_df is None:
-                # No data or model for cluster.
-                continue
-            prediction_count = pred_df["count"].sum()
-            print(f"Prediction for {cluster}: {prediction_count}")
-            cluster_predictions.append(wg.get_workload(cluster, prediction_count))
-
-        predicted_queries = pd.concat(cluster_predictions)
-        predicted_queries.to_csv(self.output_csv, header=None, quoting=csv.QUOTE_ALL)
+    predicted_queries = pd.concat(cluster_predictions)
+    predicted_queries.to_csv(K.DEBUG_QB5000_FORECASTER_PREDICTION_CSV_NEW, header=None, quoting=csv.QUOTE_ALL)
 
 
 if __name__ == "__main__":
-    if not os.path.exists(K.DEBUG_QB5000_MODEL_DIR):
-        os.mkdir(K.DEBUG_QB5000_MODEL_DIR)
-    ForecasterCLI.run()
+    main()
